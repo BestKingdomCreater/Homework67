@@ -1313,8 +1313,11 @@
 
       <div class="chip-row" id="whisper-chips">
         <button class="chip-btn" data-msg="Lower taxes or I will strike 2 lightnings!">⚡ 2 Lightnings Threat</button>
+        <button class="chip-btn" data-msg="Found religion Solar Order">✨ Found Religion</button>
+        <button class="chip-btn" data-msg="Build a church">⛪ Build Church</button>
+        <button class="chip-btn" data-msg="Build 3 crowded houses">🏘 Build 3 Houses</button>
+        <button class="chip-btn" data-msg="Feed your people and expand borders">🌾 Feed &amp; Expand</button>
         <button class="chip-btn" data-msg="Lower taxes">Lower taxes</button>
-        <button class="chip-btn" data-msg="Expand borders">Expand borders</button>
         <button class="chip-btn" data-msg="Dig trenches">Dig trenches</button>
         <button class="chip-btn" data-msg="Build fishing dock">Build dock</button>
         <button class="chip-btn" data-msg="Settle union">Settle union</button>
@@ -1446,25 +1449,25 @@
         </div>
       </div>
 
-      <!-- Browser-Only Gemini API Setup -->
+      <!-- Server-Side Gemini AI Integration -->
       <div class="modal-section">
-        <h3 class="modal-section-title">Gemini API Key (Optional)</h3>
-        <input class="input-field" id="gemini-key-input" type="password" placeholder="Paste API key (e.g. AQ... or AIza...)" autocomplete="off" />
-        <div class="action-row">
-          <button class="btn-primary" id="btn-save-key">Save Key</button>
-          <button class="btn-secondary" id="btn-test-key">Test Key</button>
-          <button class="btn-danger" id="btn-clear-key">Clear Key</button>
+        <h3 class="modal-section-title">Gemini AI Statecraft</h3>
+        <div class="field-row">
+          <span class="policy-label">Connection</span>
+          <span id="gemini-conn-badge" class="whisper-badge reaction">Checking...</span>
         </div>
-        <div class="helper-note">Stored strictly in your own browser's localStorage—never uploaded anywhere. Leave blank to use the built-in offline political &amp; personality AI.</div>
+        <div class="action-row">
+          <button class="btn-primary" id="btn-test-key">Test Gemini Connection</button>
+          <button class="btn-secondary" id="btn-refresh-gemini">Refresh Status</button>
+        </div>
+        <div class="helper-note">Kings, Awakened Minds, Summits, and Whispers use your server-side Gemini key configured in AI Studio <strong>Settings &gt; Secrets</strong> (<code>GEMINI_API_KEY</code>). When no secret is set, Kings automatically run on the built-in offline heuristic AI.</div>
         <div class="status-msg" id="key-status"></div>
 
         <div class="field-row" style="margin-top: 12px; margin-bottom: 0;">
           <label class="policy-label" for="gemini-model-select">Gemini Model</label>
           <select class="select-field" id="gemini-model-select" style="width: auto;">
-            <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Default)</option>
-            <option value="gemini-3.8-flash">gemini-3.8-flash</option>
-            <option value="gemini-4-hydrogen">gemini-4-hydrogen</option>
-            <option value="gemini-4-neon">gemini-4-neon</option>
+            <option value="gemini-4-hydrogen">gemini-4-hydrogen (Default · Fast)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Lite)</option>
           </select>
         </div>
       </div>
@@ -1507,7 +1510,6 @@
     };
     const STORAGE_KEYS = {
       WORLD: 'cot_saved_world_v1',
-      API_KEY: 'cot_gemini_api_key',
       MODEL: 'cot_gemini_model',
       FPS: 'cot_fps_limit',
       SMART_INFRA: 'cot_smart_infra'
@@ -1533,13 +1535,14 @@
     const NATION_PREFIXES = ['New ', 'Grand ', 'High ', 'Iron ', 'Sun ', 'Silver ', 'Storm ', 'Free '];
     const NATION_SUFFIXES = ['Dominion', 'Republic', 'Marches', 'Highlands', 'Coast', 'Union', 'Hold', 'Realm'];
 
-    const JOBS = ['farmer', 'woodcutter', 'miner', 'builder', 'trader', 'soldier', 'guard', 'general', 'fisher', 'engineer', 'scholar', 'medic', 'spy'];
+    const JOBS = ['farmer', 'woodcutter', 'miner', 'builder', 'trader', 'soldier', 'guard', 'general', 'fisher', 'engineer', 'scholar', 'medic', 'spy', 'priest'];
     const PLAYER_JOBS = [
       { id: 'farmer', label: '🌾 Farmer' },
       { id: 'woodcutter', label: '🪓 Wood' },
       { id: 'miner', label: '⛏ Miner' },
       { id: 'builder', label: '🔨 Builder' },
       { id: 'fisher', label: '🎣 Fisher' },
+      { id: 'priest', label: '⛪ Priest' },
       { id: 'engineer', label: '⚙ Engineer' },
       { id: 'scholar', label: '📜 Scholar' },
       { id: 'medic', label: '✚ Medic' },
@@ -1547,6 +1550,24 @@
       { id: 'trader', label: '💰 Trader' },
       { id: 'spy', label: '🕵 Spy' }
     ];
+
+    const RELIGION_TENETS = {
+      Radiant:    { label: '☀ Radiant',    desc: '+Stability & Priest healing', stabBonus: 1.5, dmgMult: 1.0,  goldPerChurch: 4, techPerChurch: 2, color: 0xFBBF24 },
+      Zealous:    { label: '⚔ Zealous',    desc: '+15% combat & swift conversion', stabBonus: 0.6, dmgMult: 1.15, goldPerChurch: 3, techPerChurch: 1, color: 0xEF4444 },
+      Prosperity: { label: '🪙 Prosperity', desc: '+Church tithes & trade gold', stabBonus: 0.9, dmgMult: 1.0,  goldPerChurch: 9, techPerChurch: 2, color: 0xF59E0B },
+      Verdant:    { label: '🌿 Verdant',    desc: 'Nature bloom & extra harvests', stabBonus: 1.2, dmgMult: 1.0,  goldPerChurch: 3, techPerChurch: 2, color: 0x10B981 },
+      Mystic:     { label: '🔮 Mystic',     desc: '+Tech & cosmic Awakening', stabBonus: 0.8, dmgMult: 1.0,  goldPerChurch: 4, techPerChurch: 6, color: 0x22D3EE }
+    };
+    const RELIGION_PREFIXES = ['Solar', 'Emerald', 'Aether', 'Covenant', 'Starlight', 'Sacred', 'Dawn', 'Golden', 'Azure', 'Eternal'];
+    const RELIGION_NOUNS = ['Order', 'Way', 'Creed', 'Church', 'Sanctum', 'Path', 'Communion', 'Faith'];
+
+    function getFaithDiplomacyAffinity(relA, relB) {
+      if (!relA || !relB) return 0;
+      if (relA.id === relB.id || relA.name === relB.name) return 20;
+      if (relA.tenet === 'Zealous' || relB.tenet === 'Zealous') return -15;
+      if (relA.tenet === 'Radiant' && relB.tenet === 'Radiant') return 8;
+      return -4;
+    }
 
     function getIdeologyAffinity(govA, govB) {
       if (govA === govB) return 18;
@@ -2529,6 +2550,101 @@
         const flare = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), MATS.fireGlow);
         flare.position.set(0.85, 2.95, -0.75);
         g.add(flare);
+      } else if (type === 'church') {
+        if (era === 0) {
+          // Stone Age: Sacred Megalith Circle & Sun Altar
+          const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.95, 0.28, 8), MATS.stone);
+          dais.position.y = 0.14;
+          dais.receiveShadow = !isSoftwareGl;
+          g.add(dais);
+          for (let i = 0; i < 4; i++) {
+            const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.55, 0.42), MATS.darkStone);
+            pillar.position.set(Math.cos(ang) * 1.25, 0.9, Math.sin(ang) * 1.25);
+            pillar.castShadow = !isSoftwareGl;
+            g.add(pillar);
+          }
+          const altar = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.54, 0.72, 6), MATS.marble);
+          altar.position.y = 0.64;
+          g.add(altar);
+          const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), MATS.goldGlow);
+          orb.position.y = 1.25;
+          g.add(orb);
+        } else if (era === 1) {
+          // Medieval: Stone Abbey Church with Bell Steeple & Cross Spire
+          const nave = new THREE.Mesh(new THREE.BoxGeometry(1.75, 1.45, 2.5), MATS.stone);
+          nave.position.y = 0.725;
+          nave.castShadow = !isSoftwareGl;
+          nave.receiveShadow = !isSoftwareGl;
+          g.add(nave);
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(1.55, 0.95, 4), fm.dark);
+          roof.position.set(0, 1.92, -0.15);
+          roof.rotation.y = Math.PI / 4;
+          roof.scale.set(0.92, 1, 1.35);
+          roof.castShadow = !isSoftwareGl;
+          g.add(roof);
+          const steeple = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.35, 0.85), MATS.stone);
+          steeple.position.set(0, 1.85, 0.85);
+          steeple.castShadow = !isSoftwareGl;
+          g.add(steeple);
+          const spire = new THREE.Mesh(new THREE.ConeGeometry(0.62, 1.15, 4), fm.primary);
+          spire.position.set(0, 3.55, 0.85);
+          spire.rotation.y = Math.PI / 4;
+          g.add(spire);
+          const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.08), MATS.gold);
+          crossV.position.set(0, 4.3, 0.85);
+          const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.08, 0.08), MATS.gold);
+          crossH.position.set(0, 4.38, 0.85);
+          const doorGlow = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.82, 0.08), MATS.goldGlow);
+          doorGlow.position.set(0, 0.44, 1.28);
+          g.add(crossV, crossH, doorGlow);
+        } else if (era === 2) {
+          // Industrial: Brick Grand Cathedral with Twin Bell Towers & Rose Window
+          const hall = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.75, 2.8), MATS.brick);
+          hall.position.y = 0.875;
+          hall.castShadow = !isSoftwareGl;
+          hall.receiveShadow = !isSoftwareGl;
+          g.add(hall);
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.82, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), fm.primary);
+          dome.position.set(0, 1.75, -0.45);
+          g.add(dome);
+          for (const sx of [-0.72, 0.72]) {
+            const tw = new THREE.Mesh(new THREE.BoxGeometry(0.62, 2.8, 0.62), MATS.brick);
+            tw.position.set(sx, 1.4, 1.12);
+            tw.castShadow = !isSoftwareGl;
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.9, 4), MATS.darkStone);
+            cap.position.set(sx, 3.22, 1.12);
+            cap.rotation.y = Math.PI / 4;
+            g.add(tw, cap);
+          }
+          const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.08, 12), MATS.goldGlow);
+          rose.rotation.x = Math.PI / 2;
+          rose.position.set(0, 1.32, 1.42);
+          const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), MATS.gold);
+          crossV.position.set(0, 2.75, -0.45);
+          const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.1, 0.1), MATS.gold);
+          crossH.position.set(0, 2.84, -0.45);
+          g.add(rose, crossV, crossH);
+        } else {
+          // Modern: Luminous Glass Sanctuary & Halo Spire
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.85, 0.45, 8), MATS.marble);
+          base.position.y = 0.225;
+          base.receiveShadow = !isSoftwareGl;
+          g.add(base);
+          const glassNave = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.3, 4), MATS.glass);
+          glassNave.position.y = 2.1;
+          glassNave.rotation.y = Math.PI / 4;
+          glassNave.castShadow = !isSoftwareGl;
+          g.add(glassNave);
+          const innerPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 3.2, 6), fm.primary);
+          innerPillar.position.y = 2.0;
+          const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.09, 6, 18), MATS.goldGlow);
+          haloRing.rotation.x = Math.PI / 2;
+          haloRing.position.y = 3.55;
+          const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), MATS.cyanGlow);
+          crest.position.y = 4.25;
+          g.add(innerPillar, haloRing, crest);
+        }
       }
       return g;
     }
@@ -2749,10 +2865,22 @@
 
       const nation = getNation(c.nationId);
       const era = nation ? nation.era : 0;
+      u.torso.material = c.isKing
+        ? MATS.gold
+        : c.job === 'priest'
+          ? MATS.marble
+          : (c.job === 'general' || c.job === 'spy')
+            ? fm.dark
+            : fm.primary;
       u.toolGroup.visible = c.job !== 'trader' && c.job !== 'scholar';
       if (c.job === 'soldier' || c.job === 'guard' || c.job === 'general') {
         u.tip.material = era === 3 ? MATS.cyanGlow : era === 2 ? MATS.iron : c.job === 'general' ? MATS.gold : MATS.steel;
         u.tip.scale.set(era === 3 ? 1.5 : 0.85, era >= 1 ? 2.2 : 1.25, 0.85);
+      } else if (c.job === 'priest') {
+        u.helmet.visible = !c.isKing;
+        u.helmet.material = MATS.gold;
+        u.tip.material = MATS.goldGlow;
+        u.tip.scale.set(1.25, 1.85, 1.25);
       } else if (c.job === 'spy') {
         u.helmet.material = MATS.darkStone;
         u.tip.material = MATS.steel;
@@ -3303,8 +3431,8 @@
         z,
         rotY: rotY || 0,
         eraBuilt: n ? n.era : 1,
-        hp: type === 'capital' ? 300 : type === 'pavilion' ? 220 : type === 'trench' || type === 'oilrig' ? 180 : 120,
-        maxHp: type === 'capital' ? 300 : type === 'pavilion' ? 220 : type === 'trench' || type === 'oilrig' ? 180 : 120,
+        hp: type === 'capital' ? 300 : type === 'pavilion' ? 220 : (type === 'trench' || type === 'oilrig' || type === 'church') ? 180 : 120,
+        maxHp: type === 'capital' ? 300 : type === 'pavilion' ? 220 : (type === 'trench' || type === 'oilrig' || type === 'church') ? 180 : 120,
         mesh: null
       };
       const mesh = buildBuildingMesh(type, n ? n.era : 1, n ? n.factionIdx : 0);
@@ -3564,11 +3692,13 @@
       const maxR = type === 'tower' ? nation.borderRadius + 0.5 : Math.max(10.5, nation.borderRadius - 1.1);
       const baseSpacing = type === 'farm'
         ? 3.1
-        : density === 'crowded'
-          ? 2.2
-          : density === 'spacious'
-            ? 3.55
-            : 2.75;
+        : type === 'church'
+          ? 3.05
+          : density === 'crowded'
+            ? 2.2
+            : density === 'spacious'
+              ? 3.55
+              : 2.75;
       const roadClearSq = 1.65 * 1.65;
 
       for (let attempt = 0; attempt < 48; attempt++) {
@@ -3643,10 +3773,17 @@
         workTimer: 0,
         speech: '',
         speechTimer: 0,
+        pendingSpeech: '',
+        pendingSpeechTimer: 0,
         chatterTimer: 2 + Math.random() * 9,
         chatPauseTimer: 0,
+        awakenedChatTimer: 0,
+        awakenedPartnerId: null,
         lastWhisperAt: -999,
         lastWrathReactAt: -999,
+        lastPowerReactAt: -999,
+        faith: opts.faith ?? 55,
+        religionId: nation?.religion?.id || null,
         activeThreat: null,
         animPhase: Math.random() * Math.PI * 2,
         rallyTimer: 0,
@@ -3709,6 +3846,8 @@
         era,
         tech: ERA_TECH_THRESHOLDS[era] || 0,
         stability: 78,
+        faith: 32,
+        religion: null,
         revoltCooldown: 0,
         governance: 'Monarchy', // Monarchy | Republic | Dictatorship | Socialism | Theocracy
         housingDensity: 'balanced', // crowded | balanced | spacious
@@ -3720,6 +3859,8 @@
         expandCooldown: 0,
         unionState: 'none', // none | organized | striking | accord
         unionTimer: 0,
+        witnessedSmite: 0,
+        witnessedQuake: 0,
         resources: {
           gold: 120,
           food: 110,
@@ -4033,15 +4174,19 @@
           const host = near || sim.nations[0];
           if (host) {
             const c = spawnCitizen(host.id, x, z);
+            host.faith = Math.min(100, (host.faith || 30) + 5);
             spawnShockwave(x, z, FACTION_PALETTE[host.factionIdx].color, 3.5);
             broadcastEvent(host.name, `A new citizen (${c.name}) was born in ${host.name}!`, x, z);
+            if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('life', x, z, { nation: host, targetCitizen: c, summary: `miraculous birth of ${c.name}` });
           }
         } else {
           const fIdx = sim.nations.length % FACTION_PALETTE.length;
           const nName = `${pick(NATION_PREFIXES)}${pick(NATION_SUFFIXES)}`;
           const newNation = createNation(nName, x, z, fIdx, 0);
+          newNation.faith = 45;
           spawnShockwave(x, z, FACTION_PALETTE[fIdx].color, 7);
           broadcastEvent('New Nation', `${newNation.name} was founded by divine decree!`, x, z);
+          if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('life', x, z, { nation: newNation, summary: `genesis of ${newNation.name}` });
         }
       } else if (tool === 'bless') {
         audio.playSfx('bless');
@@ -4064,15 +4209,21 @@
             c.hunger = 0;
             c.trust = Math.min(100, c.trust + 20);
             c.fear = Math.max(0, c.fear - 15);
+            c.faith = Math.min(100, (c.faith || 50) + 15);
           }
         }
-        const near = findNearestNation(x, z, 18);
+        const near = findNearestNation(x, z, 22);
         if (near) {
           near.resources.food += 35;
           near.stability = Math.min(100, near.stability + 10);
           near.tech += 18;
-          broadcastEvent(near.name, `Sacred rains blessed ${near.name}'s crops & stability!`, x, z);
+          near.faith = Math.min(100, (near.faith || 30) + 14);
+          broadcastEvent(near.name, `Sacred rains blessed ${near.name}'s crops, faith & stability!`, x, z);
+          if (!near.religion && near.faith >= 58 && Math.random() < 0.45 && typeof foundOrReformReligion === 'function') {
+            foundOrReformReligion(near, { tenet: 'Verdant' });
+          }
         }
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('bless', x, z, { nation: near, summary: 'healing rain blessing' });
       } else if (tool === 'smite') {
         audio.playSfx('smite');
         spawnLightning(x, z);
@@ -4094,11 +4245,11 @@
           }
         }
         broadcastEvent('Smite', casualties > 0 ? `Lightning struck down ${casualties} unit(s)!` : 'Thunder shook the earth!', x, z);
-        if (typeof recordDivineWrath === 'function') recordDivineWrath('smite', x, z, casualties);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('smite', x, z, { impactCount: casualties });
       } else if (tool === 'supply') {
         audio.playSfx('supply');
         spawnSupplyCrate(x, z);
-        const near = findNearestNation(x, z, 22);
+        const near = findNearestNation(x, z, 24);
         if (near) {
           near.resources.gold += 80;
           near.resources.food += 60;
@@ -4106,10 +4257,12 @@
           near.resources.stone += 50;
           near.resources.metal += 40;
           near.tech += 30;
+          near.faith = Math.min(100, (near.faith || 30) + 8);
           broadcastEvent(near.name, `Supply meteor enriched ${near.name} (+80 Gold & resources)!`, x, z);
         } else {
           broadcastEvent('Supply', 'A resource meteor landed in unclaimed lands.', x, z);
         }
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('supply', x, z, { nation: near, summary: 'heavenly supply meteor' });
       } else if (tool === 'harvest') {
         audio.playSfx('harvest');
         spawnShockwave(x, z, 0x10b981, 7.5);
@@ -4133,10 +4286,12 @@
         if (near) {
           near.resources.food += 45;
           near.resources.wood += 30;
+          near.faith = Math.min(100, (near.faith || 30) + 6);
           broadcastEvent(near.name, `Fertile Bloom nourished ${near.name}'s forests and harvests!`, x, z);
         } else {
           broadcastEvent('Bloom', 'A lush grove of berries, timber, and ore sprouted!', x, z);
         }
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('harvest', x, z, { nation: near, summary: 'abundant fertile bloom' });
       } else if (tool === 'quake') {
         audio.playSfx('quake');
         spawnShockwave(x, z, 0xd97706, 10);
@@ -4168,7 +4323,7 @@
           }
         }
         broadcastEvent('Quake!', `Tectonic quake shook ${shaken} citizen(s) and exposed rich ore veins!`, x, z);
-        if (typeof recordDivineWrath === 'function') recordDivineWrath('quake', x, z, shaken);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('quake', x, z, { impactCount: shaken });
       } else if (tool === 'shield') {
         audio.playSfx('shield');
         spawnSanctuaryDome(x, z);
@@ -4179,16 +4334,14 @@
             c.hp = c.maxHp;
             c.fear = Math.max(0, c.fear - 35);
             c.trust = Math.min(100, c.trust + 18);
-            if (!c.isKing && !c.speech) {
-              c.speech = 'Peace be with us!';
-              c.speechTimer = 2.6;
-            }
+            c.faith = Math.min(100, (c.faith || 50) + 18);
             healed++;
           }
         }
         const near = findNearestNation(x, z, 28);
         if (near) {
           near.stability = Math.min(100, near.stability + 12);
+          near.faith = Math.min(100, (near.faith || 30) + 16);
           for (const other of sim.nations) {
             if (other.id !== near.id && near.relations[other.id] === 'war') {
               near.relations[other.id] = 'neutral';
@@ -4198,8 +4351,12 @@
               break;
             }
           }
+          if (!near.religion && near.faith >= 55 && Math.random() < 0.55 && typeof foundOrReformReligion === 'function') {
+            foundOrReformReligion(near, { tenet: 'Radiant' });
+          }
         }
         broadcastEvent('Sanctuary', `Sanctuary dome healed ${healed} citizen(s) and calmed unrest.`, x, z);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('shield', x, z, { nation: near, impactCount: healed, summary: 'protective Sanctuary dome' });
       } else if (tool === 'envoy') {
         audio.playSfx('envoy');
         if (sim.nations.length < 2) {
@@ -4218,6 +4375,7 @@
         if (host && guest) {
           const inWar = host.relations[guest.id] === 'war';
           startLeaderMeeting(host, guest, inWar ? 'ceasefire talks' : 'envoy summit', false, { x, z });
+          if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('envoy', x, z, { nation: host, summary: `summoned ${host.name} & ${guest.name} summit` });
         }
       } else if (tool === 'rally') {
         audio.playSfx('rally');
@@ -4227,12 +4385,14 @@
           if (Math.hypot(c.x - x, c.z - z) < 11) {
             c.rallyTimer = 18;
             c.fear = Math.max(0, c.fear - 20);
-            c.speech = 'For glory!';
-            c.speechTimer = 2.5;
+            c.faith = Math.min(100, (c.faith || 50) + 10);
             count++;
           }
         }
+        const near = findNearestNation(x, z, 26);
+        if (near) near.faith = Math.min(100, (near.faith || 30) + 6);
         broadcastEvent('Inspire', `Golden rally empowered ${count} citizen(s)!`, x, z);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('rally', x, z, { nation: near, impactCount: count, summary: 'golden divine rally' });
       } else if (tool === 'possess') {
         let target = hitCitizen;
         if (!target) {
@@ -4247,6 +4407,7 @@
           return;
         }
         enterCitizenMode(target);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('possess', target.x, target.z, { targetCitizen: target, nation: getNation(target.nationId), summary: `divine incarnation into ${target.name}` });
         return;
       } else if (tool === 'awaken') {
         let target = hitCitizen;
@@ -4265,6 +4426,7 @@
           return;
         }
         toggleAwakenCitizen(target);
+        if (typeof recordGodPowerReaction === 'function') recordGodPowerReaction('awaken', target.x, target.z, { targetCitizen: target, nation: getNation(target.nationId), summary: `awakened ${target.name}'s mind` });
       }
       updateHudStats();
       updateInspectorUI();
@@ -4618,6 +4780,91 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
       return true;
     }
 
+    function foundOrReformReligion(nation, opts = {}) {
+      if (!nation) return null;
+      const tenetKeys = Object.keys(RELIGION_TENETS);
+      let tenet = opts.tenet && RELIGION_TENETS[opts.tenet] ? opts.tenet : null;
+      if (!tenet) {
+        if (nation.governance === 'Theocracy' || nation.focusPriority === 'military') tenet = Math.random() < 0.5 ? 'Zealous' : 'Radiant';
+        else if (nation.focusPriority === 'tech') tenet = 'Mystic';
+        else if (nation.focusPriority === 'economy') tenet = 'Prosperity';
+        else tenet = pick(tenetKeys);
+      }
+      const relName = String(opts.name || `${pick(RELIGION_PREFIXES)} ${pick(RELIGION_NOUNS)}`).slice(0, 32);
+      const relObj = {
+        id: nation.religion?.id || uid(),
+        name: relName,
+        tenet,
+        founderNationId: nation.id
+      };
+      nation.religion = relObj;
+      nation.faith = Math.min(100, Math.max(nation.faith || 30, 58));
+      for (const c of sim.citizens) {
+        if (c.nationId === nation.id) {
+          c.religionId = relObj.id;
+          c.faith = Math.min(100, (c.faith || 50) + 18);
+        }
+      }
+      const cap = sim.buildings.find((b) => b.nationId === nation.id && b.type === 'capital');
+      if (cap) spawnShockwave(cap.x, cap.z, RELIGION_TENETS[tenet].color, 7.5);
+      // Ensure at least one Priest exists
+      if (!sim.citizens.some((c) => c.nationId === nation.id && c.job === 'priest') && cap) {
+        spawnCitizen(nation.id, cap.x + 1.4, cap.z + 1.4, { job: 'priest', trait: 'Devout', faith: 90 });
+      }
+      if (!opts.silent) {
+        audio.playSfx('bless');
+        broadcastEvent('Faith Born!', `${nation.name} founded "${relObj.name}" (${RELIGION_TENETS[tenet].label})!`, cap ? cap.x : 0, cap ? cap.z : 0);
+      }
+      return relObj;
+    }
+
+    function buildNationChurch(nation, silent = false) {
+      if (!nation) return null;
+      if (!nation.religion) foundOrReformReligion(nation, { silent: true });
+      const spot = findSmartBuildSpot(nation, 'church');
+      if (!spot) return null;
+      const b = addBuilding(nation.id, 'church', spot.x, spot.z, spot.rotY || 0);
+      if (!b) return null;
+      rebuildRoads();
+      nation.faith = Math.min(100, (nation.faith || 30) + 14);
+      nation.stability = Math.min(100, nation.stability + 4);
+      if (!sim.citizens.some((c) => c.nationId === nation.id && c.job === 'priest')) {
+        spawnCitizen(nation.id, spot.x + 0.8, spot.z + 0.8, { job: 'priest', trait: 'Devout', faith: 90 });
+      }
+      const col = nation.religion ? RELIGION_TENETS[nation.religion.tenet].color : 0xfbbf24;
+      spawnShockwave(spot.x, spot.z, col, 4.5);
+      if (!silent) {
+        audio.playSfx('bless');
+        broadcastEvent('Church Built', `${nation.name} consecrated a Church of ${nation.religion?.name || 'the Faith'}!`, spot.x, spot.z);
+      }
+      return b;
+    }
+
+    function spreadReligion(sourceNation, targetNation = null, viaLabel = 'Missionaries') {
+      if (!sourceNation) return false;
+      if (!sourceNation.religion) foundOrReformReligion(sourceNation, { silent: true });
+      const target = targetNation || sim.nations.find((o) => o.id !== sourceNation.id && o.religion?.id !== sourceNation.religion?.id)
+        || sim.nations.find((o) => o.id !== sourceNation.id);
+      if (!target) return false;
+      const tCap = sim.buildings.find((b) => b.nationId === target.id && b.type === 'capital');
+      if (!target.religion || target.faith < 70 || Math.random() < 0.65) {
+        target.religion = { ...sourceNation.religion };
+        target.faith = Math.min(100, (target.faith || 30) + 20);
+        for (const c of sim.citizens) {
+          if (c.nationId === target.id) c.religionId = target.religion.id;
+        }
+        if (sourceNation.relations[target.id] === 'neutral') {
+          sourceNation.relations[target.id] = 'allied';
+          target.relations[sourceNation.id] = 'allied';
+          rebuildRoads();
+        }
+        if (tCap) spawnShockwave(tCap.x, tCap.z, RELIGION_TENETS[target.religion.tenet].color, 5.5);
+        broadcastEvent('Conversion!', `${viaLabel} from ${sourceNation.name} spread ${sourceNation.religion.name} to ${target.name}!`, tCap ? tCap.x : 0, tCap ? tCap.z : 0);
+        return true;
+      }
+      return false;
+    }
+
     function getDoctrine(nation) {
       return ERA_DOCTRINES[nation ? Math.min(3, Math.max(0, nation.era || 0)) : 0];
     }
@@ -4717,31 +4964,37 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
         const farms = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'farm').length;
         const workshops = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'workshop').length;
         const houses = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'house').length;
+        const churches = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'church').length;
         const docks = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'dock');
         const oilRigs = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'oilrig').length;
         const soldiers = popList.filter((c) => c.job === 'soldier' || c.job === 'guard' || c.job === 'general').length;
+        const priests = popList.filter((c) => c.job === 'priest').length;
         const ideo = IDEOLOGIES[n.governance] || IDEOLOGIES.Monarchy;
+        const tenet = n.religion ? RELIGION_TENETS[n.religion.tenet] : null;
 
-        // Tax, Oil Rig Revenue, Strike Penalty & Upkeep
+        // Tax, Oil Rig Revenue, Church Tithes, Strike Penalty & Upkeep
         const taxRate = n.taxPolicy === 'low' ? 1.5 : n.taxPolicy === 'heavy' ? 4.5 : 2.8;
         const strikeMult = n.unionState === 'striking' ? 0.65 : n.unionState === 'accord' ? 1.12 : 1.0;
         const taxIncome = Math.round(popList.length * taxRate * ideo.taxMult * strikeMult);
         const oilIncome = oilRigs * 18;
+        const churchTithe = churches * (tenet ? tenet.goldPerChurch : 3);
         if (oilRigs > 0) n.resources.metal += oilRigs * 3;
         const upkeep = Math.round(soldiers * 1.5 + (farms + workshops) * 1.2);
-        n.netIncome = taxIncome + oilIncome - upkeep;
+        n.netIncome = taxIncome + oilIncome + churchTithe - upkeep;
         n.resources.gold = Math.max(0, n.resources.gold + n.netIncome);
 
-        // Farm food output - population consumption (rain & Socialism boost food)
+        // Farm food output - population consumption (rain, Socialism & Verdant faith boost food)
         const rainBonus = (sim.weather === 'rain' || sim.weather === 'storm') ? 2 : 0;
         const socBonus = n.governance === 'Socialism' ? 5 : 0;
-        const foodProd = farms * (7 + n.era * 3 + rainBonus) + (n.focusPriority === 'economy' ? 6 : 0) + socBonus + 4;
+        const verdantBonus = n.religion?.tenet === 'Verdant' ? (4 + churches * 4) : 0;
+        const foodProd = farms * (7 + n.era * 3 + rainBonus) + (n.focusPriority === 'economy' ? 6 : 0) + socBonus + verdantBonus + 4;
         const foodEat = Math.round(popList.length * 1.15);
         n.resources.food = Math.max(0, n.resources.food + foodProd - foodEat);
 
         // Tech progression (steady, multi-minute pacing per Era)
         const scholars = popList.filter((c) => c.job === 'scholar' || c.job === 'engineer').length;
-        const techGain = Math.max(1, 2 + workshops * 2 + scholars + ideo.techBonus + (n.focusPriority === 'tech' ? 4 : 0) + (n.resources.gold > 220 ? 2 : 0));
+        const churchTech = churches * (tenet ? tenet.techPerChurch : 1);
+        const techGain = Math.max(1, 2 + workshops * 2 + scholars + ideo.techBonus + churchTech + (n.focusPriority === 'tech' ? 4 : 0) + (n.resources.gold > 220 ? 2 : 0));
         n.tech += techGain;
         const eraGoldCost = 130 + n.era * 70;
         if (n.era < 3 && n.tech >= ERA_TECH_THRESHOLDS[n.era + 1] && n.resources.gold >= eraGoldCost) {
@@ -4762,9 +5015,17 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
           expandNationBorder(n, 2.2, false);
         }
 
-        // Stability calculation & Ideology + Union effects
+        // Stability, Faith & Religion founding
         n.revoltCooldown = Math.max(0, (n.revoltCooldown || 0) - 3.5);
-        let stabDelta = 0.2 + ideo.stabBonus;
+        n.faith = THREE.MathUtils.clamp(
+          Math.round((n.faith || 30) + churches * 1.4 + priests * 0.9 + (n.governance === 'Theocracy' ? 2.2 : 0.25)),
+          0,
+          100
+        );
+        if (!n.religion && ((n.era >= 1 && n.faith >= 48) || n.governance === 'Theocracy' || ((n.witnessedSmite || 0) >= 2 && n.faith >= 40)) && Math.random() < 0.26) {
+          foundOrReformReligion(n);
+        }
+        let stabDelta = 0.2 + ideo.stabBonus + (churches > 0 && tenet ? tenet.stabBonus : 0);
         if (n.taxPolicy === 'low') stabDelta += 2.2;
         if (n.taxPolicy === 'heavy') stabDelta -= (n.governance === 'Dictatorship' ? 1.4 : 2.8);
         if (n.resources.food < 10) stabDelta -= 2.5;
@@ -4872,17 +5133,29 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
           orderNationTrench(n, true);
         } else if (n.resources.wood >= 20 && n.resources.gold >= 14 && Math.random() < 0.8) {
           let wantType = 'house';
+          const wantChurches = n.religion ? (1 + (n.governance === 'Theocracy' ? 1 : 0) + (n.era >= 2 ? 1 : 0)) : 0;
           if (n.resources.food < 38) wantType = 'farm';
+          else if (n.religion && churches < wantChurches && n.resources.stone >= 12 && Math.random() < 0.45) wantType = 'church';
           else if (houses < targetHouses || popList.length >= maxPop - 3) wantType = 'house';
           else if (workshops < 1 + n.era) wantType = 'workshop';
           else if (n.borderPolicy !== 'open' && Math.random() < 0.35) wantType = 'tower';
-          const spot = findSmartBuildSpot(n, wantType);
-          if (spot) {
-            n.resources.wood -= 16;
-            n.resources.gold -= 12;
-            addBuilding(n.id, wantType, spot.x, spot.z, spot.rotY || 0);
-            rebuildRoads();
+          if (wantType === 'church') {
+            n.resources.wood -= 14;
+            n.resources.gold -= 14;
+            n.resources.stone = Math.max(0, n.resources.stone - 10);
+            buildNationChurch(n, false);
+          } else {
+            const spot = findSmartBuildSpot(n, wantType);
+            if (spot) {
+              n.resources.wood -= 16;
+              n.resources.gold -= 12;
+              addBuilding(n.id, wantType, spot.x, spot.z, spot.rotY || 0);
+              rebuildRoads();
+            }
           }
+        }
+        if (churches > 0 && priests === 0 && popList.length < maxPop && cap && Math.random() < 0.45) {
+          spawnCitizen(n.id, cap.x + 1.1, cap.z + 1.1, { job: 'priest', trait: 'Devout', faith: 90 });
         }
 
         // Coup or Secession check on low stability (with revolt cooldown + nation cap)
@@ -4944,6 +5217,25 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
               broadcastEvent('Ideology Clash', `Rivalry between ${a.name} (${a.governance}) & ${b.name} (${b.governance}) sparked WAR!`, cA ? cA.x : 0, cA ? cA.z : 0);
               rebuildRoads();
             }
+
+            // Religious Diplomacy (Holy Alliances & Zealous Rivalry)
+            if (a.religion && b.religion && Math.random() < 0.32) {
+              const fAff = getFaithDiplomacyAffinity(a.religion, b.religion);
+              const curRel = a.relations[b.id] || 'neutral';
+              if (fAff >= 18 && curRel === 'neutral' && Math.random() < 0.35) {
+                a.relations[b.id] = 'allied';
+                b.relations[a.id] = 'allied';
+                const cA = sim.buildings.find((x) => x.nationId === a.id && x.type === 'capital');
+                broadcastEvent('Holy Pact', `${a.name} & ${b.name} formed a Sacred Alliance under ${a.religion.name}!`, cA ? cA.x : 0, cA ? cA.z : 0);
+                rebuildRoads();
+              } else if (fAff <= -12 && curRel === 'neutral' && a.faith > 65 && b.stability > 50 && Math.random() < 0.07) {
+                a.relations[b.id] = 'war';
+                b.relations[a.id] = 'war';
+                const cA = sim.buildings.find((x) => x.nationId === a.id && x.type === 'capital');
+                broadcastEvent('Holy War!', `Zealotry between ${a.religion.name} & ${b.religion.name} ignited conflict!`, cA ? cA.x : 0, cA ? cA.z : 0);
+                rebuildRoads();
+              }
+            }
           }
         }
       }
@@ -4967,11 +5259,23 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
         const cap = sim.buildings.find((b) => b.nationId === nation.id && b.type === 'capital');
         const doctrine = getDoctrine(nation);
 
+        if (c.pendingSpeechTimer > 0) {
+          c.pendingSpeechTimer -= dt;
+          if (c.pendingSpeechTimer <= 0 && c.pendingSpeech) {
+            c.speech = c.pendingSpeech;
+            c.speechTimer = 5.4;
+            c.pendingSpeech = '';
+          }
+        }
         if (c.speechTimer > 0) {
           c.speechTimer -= dt;
           if (c.speechTimer <= 0) c.speech = '';
         }
         if (c.chatPauseTimer > 0) c.chatPauseTimer = Math.max(0, c.chatPauseTimer - dt);
+        if (c.awakenedChatTimer > 0) {
+          c.awakenedChatTimer = Math.max(0, c.awakenedChatTimer - dt);
+          if (c.awakenedChatTimer <= 0) c.awakenedPartnerId = null;
+        }
         if (c.rallyTimer > 0) c.rallyTimer -= dt;
 
         // Lightweight, throttled everyday citizen chatter (max 3 active bubbles, O(1) neighbor check)
@@ -5147,7 +5451,8 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
                 );
                 const coverMult = inTrenchCover ? 0.55 : 1.0;
                 const ideoDmgMult = (IDEOLOGIES[nation.governance] || IDEOLOGIES.Monarchy).dmgMult;
-                const dmg = (14 + nation.era * 6 + doctrine.dmgBonus + (c.job === 'general' ? 6 : 0)) * (c.rallyTimer > 0 ? 1.55 : 1.0) * coverMult * ideoDmgMult;
+                const relDmgMult = nation.religion ? (RELIGION_TENETS[nation.religion.tenet]?.dmgMult || 1.0) : 1.0;
+                const dmg = (14 + nation.era * 6 + doctrine.dmgBonus + (c.job === 'general' ? 6 : 0)) * (c.rallyTimer > 0 ? 1.55 : 1.0) * coverMult * ideoDmgMult * relDmgMult;
                 enemy.hp -= dmg;
                 if (doctrine.range > 3.0) {
                   spawnShotBeam(c.x, c.z, enemy.x, enemy.z, nation.era >= 3 ? 0x22d3ee : 0xfef08a);
@@ -5451,6 +5756,35 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
                 c.tx = cap.x + (Math.random() - 0.5) * 7;
                 c.tz = cap.z + (Math.random() - 0.5) * 7;
               }
+            } else if (c.job === 'priest' && cap) {
+              const shrine = sim.buildings.find((b) => b.nationId === nation.id && b.type === 'church') || cap;
+              const hurt = sim.citizens.find((o) => o.nationId === nation.id && o.hp < o.maxHp && Math.hypot(o.x - c.x, o.z - c.z) < 12);
+              const neighborCap = sim.buildings.find((b) => b.type === 'capital' && b.nationId !== nation.id && nation.relations[b.nationId] !== 'war' && !getNation(b.nationId)?.religion);
+              if (hurt) {
+                c.tx = hurt.x;
+                c.tz = hurt.z;
+                if (Math.hypot(hurt.x - c.x, hurt.z - c.z) < 2.8) {
+                  hurt.hp = Math.min(hurt.maxHp, hurt.hp + 18);
+                  hurt.fear = Math.max(0, hurt.fear - 12);
+                  spawnShockwave(hurt.x, hurt.z, 0xfbbf24, 1.8);
+                }
+              } else if (neighborCap && nation.religion && Math.random() < 0.22) {
+                c.tx = neighborCap.x;
+                c.tz = neighborCap.z;
+                if (Math.hypot(neighborCap.x - c.x, neighborCap.z - c.z) < 3.6) {
+                  const targetN = getNation(neighborCap.nationId);
+                  if (targetN) spreadReligion(nation, targetN, `Priest ${c.name}`);
+                }
+              } else if (c.workTimer > 1.8) {
+                c.workTimer = 0;
+                nation.faith = Math.min(100, (nation.faith || 30) + 1);
+                if (!c.speech && Math.random() < 0.28) {
+                  c.speech = nation.religion ? `Blessed be ${nation.religion.name}!` : 'May the heavens watch over us!';
+                  c.speechTimer = 3.0;
+                }
+                c.tx = shrine.x + (Math.random() - 0.5) * 4.5;
+                c.tz = shrine.z + (Math.random() - 0.5) * 4.5;
+              }
             } else if (c.job === 'builder' && sim.meeting && sim.meeting.requiresPavilion && !sim.meeting.pavilionBuilt &&
               (c.nationId === sim.meeting.hostId || c.nationId === sim.meeting.guestId)) {
               const m = sim.meeting;
@@ -5501,13 +5835,19 @@ God just touched your mind with Gemini AI awakening! Speak your first awakened t
           }
         }
 
-        // Hold position & face camera when chatting with God in Whisper
-        const pausedForChat = !fighting && ((c.chatPauseTimer || 0) > 0 || isWhisperModalTarget(c));
+        // Hold position & face camera (whisper) or partner (awakened dialogue)
+        const partner = c.awakenedPartnerId ? getCitizen(c.awakenedPartnerId) : null;
+        const conversingAwakened = !!(partner && (c.awakenedChatTimer || 0) > 0 && Math.hypot(partner.x - c.x, partner.z - c.z) < 4.5);
+        const pausedForChat = !fighting && ((c.chatPauseTimer || 0) > 0 || isWhisperModalTarget(c) || conversingAwakened);
         if (pausedForChat) {
           c.tx = c.x;
           c.tz = c.z;
           if (c.mesh) {
-            c.mesh.rotation.y = Math.atan2(camera.position.x - c.x, camera.position.z - c.z);
+            if (conversingAwakened) {
+              c.mesh.rotation.y = Math.atan2(partner.x - c.x, partner.z - c.z);
+            } else {
+              c.mesh.rotation.y = Math.atan2(camera.position.x - c.x, camera.position.z - c.z);
+            }
           }
         }
 
