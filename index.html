@@ -731,6 +731,115 @@
       flex-shrink: 0;
     }
 
+    .whisper-focus-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+    }
+
+    .whisper-meta {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .whisper-log {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 165px;
+      overflow-y: auto;
+      padding: 8px;
+      margin-bottom: 10px;
+      border-radius: 9px;
+      background: rgba(5, 8, 13, 0.58);
+      border: 1px solid var(--border-hairline);
+    }
+
+    .whisper-msg {
+      padding: 7px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      border-left: 3px solid var(--border-strong);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .whisper-msg.god {
+      border-left-color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.1);
+    }
+
+    .whisper-msg.accept {
+      border-left-color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .whisper-msg.reject {
+      border-left-color: var(--accent-red);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .whisper-msg.reaction {
+      border-left-color: #38BDF8;
+      background: rgba(56, 189, 248, 0.11);
+    }
+
+    .whisper-msg-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .whisper-badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 2px 6px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    .whisper-badge.god { background: rgba(245, 158, 11, 0.22); color: #FDE68A; }
+    .whisper-badge.accept { background: rgba(16, 185, 129, 0.24); color: #6EE7B7; }
+    .whisper-badge.reject { background: rgba(239, 68, 68, 0.24); color: #FCA5A5; }
+    .whisper-badge.reaction { background: rgba(56, 189, 248, 0.24); color: #7DD3FC; }
+
+    .whisper-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 84px;
+      transform: translateX(-50%);
+      z-index: 22;
+      display: none;
+      max-width: min(460px, calc(100vw - 24px));
+      padding: 9px 13px;
+      border-radius: 10px;
+      background: rgba(12, 17, 26, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+      color: var(--text-primary);
+      font-size: 12px;
+      line-height: 1.4;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .whisper-toast.show {
+      display: block;
+    }
+
     .helper-note {
       font-size: 11px;
       color: var(--text-muted);
@@ -1166,13 +1275,16 @@
     </div>
   </div>
 
+  <!-- Floating Whisper / Wrath Reaction Toast (visible when Whisper modal is closed) -->
+  <div class="whisper-toast" id="whisper-toast" title="Tap to follow speaker & open Whisper log"></div>
+
   <!-- Whisper Modal -->
   <div class="modal-backdrop" id="whisper-modal">
     <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="whisper-title">
       <div class="inspector-header">
         <div>
           <h2 class="inspector-title" id="whisper-title">Whisper as God</h2>
-          <div class="inspector-sub" id="whisper-subtitle">Send a divine command or persuasion.</div>
+          <div class="inspector-sub" id="whisper-subtitle">Send a divine command, ultimatum, or persuasion.</div>
         </div>
         <button class="close-btn" id="btn-close-whisper" aria-label="Close">✕</button>
       </div>
@@ -1187,7 +1299,15 @@
       <div class="whisper-list" id="whisper-target-list"></div>
       <input type="hidden" id="whisper-target-select" value="all" />
 
+      <div class="whisper-focus-bar" id="whisper-focus-bar">
+        <div class="whisper-meta" id="whisper-target-meta">Select a target to track Fear, Trust & active threats.</div>
+        <button type="button" class="btn-secondary" id="btn-whisper-follow" style="min-height:30px;padding:4px 10px;font-size:11px;flex-shrink:0;">📍 Follow</button>
+      </div>
+
+      <div class="whisper-log" id="whisper-log"></div>
+
       <div class="chip-row" id="whisper-chips">
+        <button class="chip-btn" data-msg="Lower taxes or I will strike 2 lightnings!">⚡ 2 Lightnings Threat</button>
         <button class="chip-btn" data-msg="Lower taxes">Lower taxes</button>
         <button class="chip-btn" data-msg="Expand borders">Expand borders</button>
         <button class="chip-btn" data-msg="Dig trenches">Dig trenches</button>
@@ -1199,7 +1319,7 @@
       </div>
 
       <div style="display: flex; gap: 8px;">
-        <input class="input-field" id="whisper-input" type="text" placeholder="Type your divine whisper..." maxlength="180" />
+        <input class="input-field" id="whisper-input" type="text" placeholder="Whisper a command or threat (e.g. If you don't listen I'll do 2 lightnings)..." maxlength="180" />
         <button class="btn-primary" id="btn-send-whisper">Send</button>
       </div>
       <div class="status-msg" id="whisper-status"></div>
@@ -2653,6 +2773,8 @@
       roads: [],
       walls: [],
       fx: [],
+      divineActs: [],
+      whisperLog: [],
       meeting: null,
       meetingCooldown: 18,
       selected: null, // { type: 'nation' | 'citizen', id }
@@ -3308,6 +3430,10 @@
         speech: '',
         speechTimer: 0,
         chatterTimer: 2 + Math.random() * 9,
+        chatPauseTimer: 0,
+        lastWhisperAt: -999,
+        lastWrathReactAt: -999,
+        activeThreat: null,
         animPhase: Math.random() * Math.PI * 2,
         rallyTimer: 0,
         mesh: null
@@ -3453,6 +3579,9 @@
       sim.boats = [];
       sim.resources = [];
       sim.fx = [];
+      sim.divineActs = [];
+      sim.whisperLog = [];
+      if (typeof renderWhisperLog === 'function') renderWhisperLog();
       sim.meeting = null;
       sim.meetingCooldown = 16;
       sim.selected = null;
@@ -3740,6 +3869,7 @@
           }
         }
         broadcastEvent('Smite', casualties > 0 ? `Lightning struck down ${casualties} unit(s)!` : 'Thunder shook the earth!', x, z);
+        if (typeof recordDivineWrath === 'function') recordDivineWrath('smite', x, z, casualties);
       } else if (tool === 'supply') {
         audio.playSfx('supply');
         spawnSupplyCrate(x, z);
@@ -3813,6 +3943,7 @@
           }
         }
         broadcastEvent('Quake!', `Tectonic quake shook ${shaken} citizen(s) and exposed rich ore veins!`, x, z);
+        if (typeof recordDivineWrath === 'function') recordDivineWrath('quake', x, z, shaken);
       } else if (tool === 'shield') {
         audio.playSfx('shield');
         spawnSanctuaryDome(x, z);
@@ -4580,6 +4711,7 @@
           c.speechTimer -= dt;
           if (c.speechTimer <= 0) c.speech = '';
         }
+        if (c.chatPauseTimer > 0) c.chatPauseTimer = Math.max(0, c.chatPauseTimer - dt);
         if (c.rallyTimer > 0) c.rallyTimer -= dt;
 
         // Lightweight, throttled everyday citizen chatter (max 3 active bubbles, O(1) neighbor check)
@@ -5109,13 +5241,23 @@
           }
         }
 
+        // Hold position & face camera when chatting with God in Whisper
+        const pausedForChat = !fighting && ((c.chatPauseTimer || 0) > 0 || isWhisperModalTarget(c));
+        if (pausedForChat) {
+          c.tx = c.x;
+          c.tz = c.z;
+          if (c.mesh) {
+            c.mesh.rotation.y = Math.atan2(camera.position.x - c.x, camera.position.z - c.z);
+          }
+        }
+
         // Move toward target
         const dx = c.tx - c.x;
         const dz = c.tz - c.z;
         const dist = Math.hypot(dx, dz);
         const speedMult = (c.job === 'soldier' || c.job === 'general') ? doctrine.speedMult : (c.job === 'trader' || c.job === 'spy' ? 1.18 : 1.0);
         const speed = (c.rallyTimer > 0 ? 4.4 : 2.65) * speedMult;
-        const moving = dist > 0.25;
+        const moving = !pausedForChat && dist > 0.25;
 
         if (moving) {
           const step = Math.min(dist, speed * dt);
@@ -5230,17 +5372,157 @@
       }
     }
 
-    function applyAiDecision(actor, nation, decision) {
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function isWhisperModalTarget(c) {
+      if (!c) return false;
+      const modal = document.getElementById('whisper-modal');
+      if (!modal || !modal.classList.contains('open')) return false;
+      const sel = document.getElementById('whisper-target-select')?.value || '';
+      if (sel === 'all') return !!c.isKing;
+      if (sel.startsWith('nation:')) return !!c.isKing && c.nationId === Number(sel.split(':')[1]);
+      if (sel.startsWith('citizen:')) return c.id === Number(sel.split(':')[1]);
+      return false;
+    }
+
+    let whisperToastTimer = null;
+    function showWhisperToast(entry) {
+      const toast = document.getElementById('whisper-toast');
+      const modal = document.getElementById('whisper-modal');
+      if (!toast || !entry || (modal && modal.classList.contains('open'))) return;
+      const icon = entry.kind === 'accept' ? '✅' : entry.kind === 'reject' ? '🚫' : '⚡';
+      toast.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;"><strong>${icon} ${escapeHtml(entry.sender)}</strong><span class="whisper-badge ${entry.kind}">${escapeHtml(entry.badge)}</span></div><div>“${escapeHtml(entry.text)}”</div>`;
+      toast.dataset.citizenId = entry.citizenId ? String(entry.citizenId) : '';
+      toast.dataset.nationId = entry.nationId ? String(entry.nationId) : '';
+      toast.classList.add('show');
+      if (whisperToastTimer) clearTimeout(whisperToastTimer);
+      whisperToastTimer = setTimeout(() => toast.classList.remove('show'), 5800);
+    }
+
+    function renderWhisperLog() {
+      const logEl = document.getElementById('whisper-log');
+      if (!logEl) return;
+      if (!sim.whisperLog || sim.whisperLog.length === 0) {
+        logEl.innerHTML = `<div class="helper-note" style="margin:2px 0;">No whispers yet. Try commanding a King or threatening e.g. “Lower taxes or I will strike 2 lightnings!”</div>`;
+        return;
+      }
+      logEl.innerHTML = sim.whisperLog.map((e) => `
+        <div class="whisper-msg ${e.kind}">
+          <div class="whisper-msg-head">
+            <span>${escapeHtml(e.sender)}</span>
+            <span class="whisper-badge ${e.kind}">${escapeHtml(e.badge)}</span>
+          </div>
+          <div>${escapeHtml(e.text)}</div>
+          ${e.actionNote ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${escapeHtml(e.actionNote)}</div>` : ''}
+        </div>
+      `).join('');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function appendWhisperLog(entry) {
+      sim.whisperLog.push({ id: uid(), time: sim.time, ...entry });
+      if (sim.whisperLog.length > 30) sim.whisperLog.shift();
+      renderWhisperLog();
+      if (typeof updateWhisperFocusBar === 'function') updateWhisperFocusBar();
+      if (entry.kind !== 'god') showWhisperToast(entry);
+    }
+
+    function parseDivineThreat(text) {
+      const raw = String(text || '').trim();
+      const lower = raw.toLowerCase();
+      const hasQuake = /\b(quake|quakes|earthquake|earthquakes|tremor|tremors)\b/i.test(lower);
+      const hasSmite = /\b(lightning|lightnings|bolt|bolts|thunder|smite|smites|strike|strikes)\b/i.test(lower);
+      const hasCond = /\b(if you|unless|or i will|or i'll|or else|otherwise|don't listen|do not listen|obey or|refuse|threat|warn)\b/i.test(lower);
+      const hasCountedWrath = /\b([1-9]|one|two|three|four|five|twice|thrice)\s+(lightnings?|bolts?|smites?|strikes?|quakes?|earthquakes?)\b/i.test(lower);
+      const hasThreat = (hasCond && (hasSmite || hasQuake)) || hasCountedWrath || /\b(threaten|punish|wrath)\b/i.test(lower);
+      if (!hasThreat) return { hasThreat: false, power: 'smite', requiredCount: 0, demandText: raw };
+
+      const power = hasQuake && !hasSmite ? 'quake' : 'smite';
+      let requiredCount = 1;
+      const wordNums = { one: 1, once: 1, two: 2, twice: 2, three: 3, thrice: 3, four: 4, five: 5 };
+      const numMatch = lower.match(/\b([1-9]|one|two|three|four|five|twice|thrice)\s*(?:more\s*)?(?:lightnings?|bolts?|smites?|strikes?|quakes?|earthquakes?|times?)\b/i)
+        || lower.match(/\b(?:do|send|cast|strike|drop|unleash)\s+([1-9]|one|two|three|four|five)\b/i);
+      if (numMatch) {
+        const tok = numMatch[1].toLowerCase();
+        requiredCount = Math.min(5, Math.max(1, wordNums[tok] || Number(tok) || 1));
+      }
+
+      let demandText = raw
+        .replace(/\b(?:if you (?:don't|do not|refuse|disobey)(?: listen(?: to me)?)?[,:\-]?\s*)/gi, '')
+        .replace(/\b(?:or\s+i(?:'ll|\s+will)|or\s+else|unless\s+you\s+obey|otherwise)\b[\s\S]*$/i, '')
+        .replace(/\bi(?:'ll|\s+will)\s+(?:do|send|cast|strike|drop|unleash)\s+[\s\S]*$/i, '')
+        .trim();
+      if (!demandText || demandText.length < 3) demandText = 'Obey my divine command';
+      return { hasThreat: true, power, requiredCount, demandText };
+    }
+
+    function describeActionOutcome(act, decision, nation) {
+      if (!act || act === 'none') return '';
+      if (act === 'change_policy' && decision?.policy) {
+        const parts = [];
+        if (decision.policy.tax) parts.push(`Tax: ${decision.policy.tax}`);
+        if (decision.policy.border) parts.push(`Borders: ${decision.policy.border}`);
+        if (decision.policy.governance) parts.push(`Ideology: ${decision.policy.governance}`);
+        if (decision.policy.focus) parts.push(`Focus: ${decision.policy.focus}`);
+        return parts.join(' · ');
+      }
+      const labels = {
+        coup: 'Overthrew the ruler',
+        rebel: 'Founded a rival faction',
+        advance_era: `Advanced ${nation?.name || 'nation'} era`,
+        build: 'Ordered new construction',
+        declare_war: 'Declared war',
+        make_peace: 'Signed peace treaty',
+        request_meeting: 'Requested royal summit',
+        expand_border: 'Expanded national borders',
+        dig_trench: 'Ordered border trenches',
+        build_dock: 'Ordered fishing dock',
+        build_oilrig: 'Ordered offshore oil rig',
+        settle_union: 'Settled with workers union',
+        dispatch_spy: 'Dispatched espionage agent',
+        trade: 'Boosted commerce (+35g)',
+        gather: 'Gathered emergency supplies',
+        pray: 'Boosted faith & stability'
+      };
+      return labels[act] || act;
+    }
+
+    function applyAiDecision(actor, nation, decision, opts = {}) {
       if (!decision || !nation) return;
       const accepted = decision.decision !== 'reject';
-      const speech = String(decision.speech || (accepted ? 'So it shall be!' : 'Never!')).slice(0, 90);
+      const speech = String(decision.speech || (accepted ? 'So it shall be!' : 'Never!')).slice(0, 110);
       if (actor) {
         actor.speech = speech;
-        actor.speechTimer = 4.5;
+        actor.speechTimer = opts.fromWhisper || opts.fromWrath ? 6.0 : 4.5;
+        if (opts.fromWhisper || opts.fromWrath) {
+          actor.chatPauseTimer = 9.0;
+          actor.trust = accepted ? Math.min(100, (actor.trust || 60) + 5) : Math.max(0, (actor.trust || 60) - 6);
+        }
       }
 
       if (!accepted) {
-        broadcastEvent(actor ? actor.name : nation.name, `${actor ? actor.name : nation.name} refused: "${speech}"`, actor ? actor.x : 0, actor ? actor.z : 0);
+        broadcastEvent(actor ? actor.name : nation.name, `${actor ? actor.name : nation.name} declined: "${speech}"`, actor ? actor.x : 0, actor ? actor.z : 0);
+        if (opts.fromWhisper || opts.fromWrath) {
+          appendWhisperLog({
+            kind: 'reject',
+            badge: 'DECLINED',
+            sender: `${actor ? (actor.isKing ? '👑 King ' + actor.name : actor.name) : nation.name} (${nation.name})`,
+            text: speech,
+            actionNote: actor?.activeThreat && !actor.activeThreat.fulfilled
+              ? `Defying ultimatum (${actor.activeThreat.progressCount}/${actor.activeThreat.requiredCount} ${actor.activeThreat.power})`
+              : 'Refused divine command',
+            citizenId: actor?.id,
+            nationId: nation.id
+          });
+        }
+        updateInspectorUI();
+        updateHudStats();
         return;
       }
 
@@ -5329,27 +5611,73 @@
         nation.stability = Math.min(100, nation.stability + 8);
         if (actor) actor.trust = Math.min(100, actor.trust + 15);
       }
+
+      if (opts.fromWhisper || opts.fromWrath) {
+        appendWhisperLog({
+          kind: 'accept',
+          badge: opts.fromWrath ? 'YIELDED · ACCEPTED' : 'ACCEPTED',
+          sender: `${actor ? (actor.isKing ? '👑 King ' + actor.name : actor.name) : nation.name} (${nation.name})`,
+          text: speech,
+          actionNote: describeActionOutcome(act, decision, nation),
+          citizenId: actor?.id,
+          nationId: nation.id
+        });
+      }
       updateInspectorUI();
       updateHudStats();
     }
 
-    // Smart Offline Political & Personality Evaluator
-    function localDecisionEngine(role, actor, nation, whisperText = '') {
+    // Smart Offline Political, Threat & Personality Evaluator
+    function localDecisionEngine(role, actor, nation, whisperText = '', opts = {}) {
       const w = whisperText.toLowerCase();
       if (whisperText) {
+        const threat = opts.threat || parseDivineThreat(whisperText);
+        const trait = actor ? actor.trait : 'Wise';
+        const fear = actor ? (actor.fear || 10) : 15;
+        const trust = actor ? (actor.trust || 60) : 60;
+        const forced = !!opts.forceAfterWrath;
+        const witnessedRecently = (sim.divineActs || []).some((a) => sim.time - a.time < 40) || ((nation.witnessedSmite || 0) > 0 && fear >= 48);
+
+        // Non-royal citizens decline sovereign state decrees unless rebelling/plotting
+        const isStateDecree = /\b(tax|border|dictator|republic|socialis|theocra|monarch|war|peace|treaty|era|advance|trench|dock|oil|rig|union)\b/i.test(w);
+        if (actor && !actor.isKing && actor.job !== 'general' && isStateDecree && !w.includes('coup') && !w.includes('rebel') && !forced) {
+          return { decision: 'reject', action: 'none', speech: `I am only a ${actor.job}—ask King ${getKingOf(nation.id)?.name || 'our ruler'}!` };
+        }
+
+        // Unbacked threats get challenged by stubborn/proud/unafraid rulers until they see wrath!
+        if (threat.hasThreat && !forced && !witnessedRecently && fear < 55 && trait !== 'Pious') {
+          if (threat.requiredCount >= 2 || trait === 'Brave' || trait === 'Ambitious' || trait === 'Greedy' || nation.stability >= 58 || fear < 38) {
+            const wWord = threat.power === 'quake' ? 'earthquakes' : 'lightnings';
+            return {
+              decision: 'reject',
+              action: 'none',
+              speech: `Empty threats! Strike ${threat.requiredCount} ${wWord} if you truly hold power!`
+            };
+          }
+        }
+
         if (w.includes('coup') || w.includes('overthrow')) {
-          if (actor && !actor.isKing && (nation.stability < 65 || actor.trust > 45 || actor.awakened)) {
-            return { decision: 'accept', action: 'coup', speech: 'The tyrant falls today!' };
+          if (actor && !actor.isKing && (forced || nation.stability < 65 || trust > 48 || actor.awakened || fear >= 55)) {
+            return { decision: 'accept', action: 'coup', speech: forced ? 'Your wrath convinced us—the tyrant falls!' : 'The tyrant falls today!' };
           }
           return { decision: 'reject', action: 'none', speech: 'I remain loyal to the crown.' };
         }
         if (w.includes('rebel') || w.includes('secede')) {
-          return { decision: 'accept', action: 'rebel', speech: 'We forge our own destiny!' };
+          if (actor && !actor.isKing && (forced || nation.stability < 70 || trait === 'Ambitious')) {
+            return { decision: 'accept', action: 'rebel', speech: 'We forge our own destiny!' };
+          }
+          return { decision: 'reject', action: 'none', speech: 'We will not split our homeland!' };
         }
         if (w.includes('dictator')) {
-          return { decision: 'accept', action: 'change_policy', policy: { governance: 'Dictatorship' }, speech: 'Absolute decree rules this land!' };
+          if (!forced && nation.governance === 'Republic' && nation.stability > 68 && trait !== 'Ambitious' && fear < 50) {
+            return { decision: 'reject', action: 'none', speech: 'Our citizens refuse tyranny and keep the Republic!' };
+          }
+          return { decision: 'accept', action: 'change_policy', policy: { governance: 'Dictatorship' }, speech: forced ? 'By your thunder, absolute rule begins!' : 'Absolute decree rules this land!' };
         }
         if (w.includes('republic')) {
+          if (!forced && nation.governance === 'Dictatorship' && trait === 'Ambitious' && fear < 50) {
+            return { decision: 'reject', action: 'none', speech: 'I will never surrender my throne to a senate!' };
+          }
           return { decision: 'accept', action: 'change_policy', policy: { governance: 'Republic' }, speech: 'The Republic rises!' };
         }
         if (w.includes('socialis')) {
@@ -5362,6 +5690,9 @@
           return { decision: 'accept', action: 'change_policy', policy: { governance: 'Monarchy' }, speech: 'Long live the monarchy!' };
         }
         if (w.includes('union') || w.includes('strike')) {
+          if (!forced && nation.governance === 'Dictatorship' && trait === 'Greedy' && fear < 50) {
+            return { decision: 'reject', action: 'none', speech: 'Unions are forbidden under my iron decree!' };
+          }
           return { decision: 'accept', action: 'settle_union', speech: 'We honor the Workers Union!' };
         }
         if (w.includes('oil') || w.includes('rig')) {
@@ -5371,28 +5702,49 @@
           return { decision: 'accept', action: 'build_dock', speech: 'Launch our fishing fleet!' };
         }
         if (w.includes('spy') || w.includes('sabotage') || w.includes('espionage')) {
+          if (!forced && trait === 'Pious' && fear < 45) {
+            return { decision: 'reject', action: 'none', speech: 'Espionage stains our honor—I refuse!' };
+          }
           return { decision: 'accept', action: 'dispatch_spy', speech: 'Send spies into rival lands!' };
         }
         if (w.includes('lower tax') || w.includes('cut tax')) {
-          return { decision: 'accept', action: 'change_policy', policy: { tax: 'low' }, speech: 'Taxes are lowered for the people!' };
+          if (!forced && trait === 'Greedy' && nation.stability > 52 && fear < 48 && trust < 78) {
+            return { decision: 'reject', action: 'none', speech: 'Our coffers need coin—taxes remain!' };
+          }
+          return { decision: 'accept', action: 'change_policy', policy: { tax: 'low' }, speech: forced ? 'Mercy! Taxes are lowered immediately!' : 'Taxes are lowered for the people!' };
         }
         if (w.includes('raise tax') || w.includes('heavy tax')) {
+          if (!forced && (trait === 'Wise' || nation.stability < 50) && fear < 50) {
+            return { decision: 'reject', action: 'none', speech: 'Heavy taxes will break our people—I decline.' };
+          }
           return { decision: 'accept', action: 'change_policy', policy: { tax: 'heavy' }, speech: 'The treasury demands tribute.' };
         }
         if (w.includes('close') && w.includes('border')) {
           return { decision: 'accept', action: 'change_policy', policy: { border: 'closed' }, speech: 'Seal the gates and man the walls!' };
         }
         if (w.includes('open') && w.includes('border')) {
+          if (!forced && Object.values(nation.relations).includes('war') && fear < 55) {
+            return { decision: 'reject', action: 'none', speech: 'Enemies are at war with us—we cannot open borders!' };
+          }
           return { decision: 'accept', action: 'change_policy', policy: { border: 'open' }, speech: 'Open the roads to merchants!' };
         }
         if (w.includes('era') || w.includes('advance') || w.includes('tech')) {
+          if (!forced && nation.resources.gold < 40 && fear < 50) {
+            return { decision: 'reject', action: 'none', speech: 'Our treasury is too poor to fund a new era yet.' };
+          }
           return { decision: 'accept', action: 'advance_era', speech: 'A new age dawns upon us!' };
         }
         if (w.includes('war')) {
+          if (!forced && (trait === 'Wise' || trait === 'Pious' || nation.stability < 48) && fear < 52) {
+            return { decision: 'reject', action: 'none', speech: 'We refuse senseless war—our people want peace.' };
+          }
           return { decision: 'accept', action: 'declare_war', speech: 'Sound the war horns!' };
         }
         if (w.includes('peace') || w.includes('treaty') || w.includes('ally')) {
-          return { decision: 'accept', action: 'make_peace', speech: 'We lay down our arms in peace.' };
+          if (!forced && (trait === 'Brave' || trait === 'Ambitious') && nation.stability > 78 && fear < 45 && Object.values(nation.relations).includes('war')) {
+            return { decision: 'reject', action: 'none', speech: 'We have the upper hand—no peace yet!' };
+          }
+          return { decision: 'accept', action: 'make_peace', speech: forced ? 'Strike no more—we sign peace at once!' : 'We lay down our arms in peace.' };
         }
         if (w.includes('meet') || w.includes('summit') || w.includes('pavilion')) {
           return { decision: 'accept', action: 'request_meeting', speech: 'Summon the rulers to parley!' };
@@ -5401,10 +5753,19 @@
           return { decision: 'accept', action: 'dig_trench', speech: 'Dig trenches along the border!' };
         }
         if (w.includes('expand') || w.includes('border') || w.includes('territory')) {
+          if (!forced && nation.resources.gold < 30 && fear < 48) {
+            return { decision: 'reject', action: 'none', speech: 'We cannot afford border expansion right now.' };
+          }
           return { decision: 'accept', action: 'expand_border', speech: 'Push our borders outward!' };
         }
         if (w.includes('build')) {
           return { decision: 'accept', action: 'build', speech: 'Raise new walls and homes!' };
+        }
+        if (forced) {
+          return { decision: 'accept', action: 'pray', speech: 'Mercy, Almighty! We hear and obey your command!' };
+        }
+        if (trust < 42 && fear < 40) {
+          return { decision: 'reject', action: 'none', speech: 'Why should we obey without proof of your power?' };
         }
         return { decision: 'accept', action: 'pray', speech: 'We hear your voice from above!' };
       }
@@ -5452,6 +5813,140 @@
       }
     }
 
+    async function reactToDivineWrath(actor, nation, tool, dist, impactCount) {
+      if (!actor || !nation) return;
+      const threat = actor.activeThreat;
+      const powerWord = tool === 'quake' ? 'earthquake' : 'lightning';
+      let isUltimatumDone = false;
+      let progressNote = `Witnessed divine ${powerWord} (${Math.round(dist)}m away)`;
+
+      if (threat && !threat.fulfilled) {
+        if (threat.power === tool || tool === 'smite' || tool === 'quake') {
+          threat.progressCount = (threat.progressCount || 0) + 1;
+        }
+        progressNote = `Threat ${threat.progressCount}/${threat.requiredCount} ${threat.power === 'quake' ? 'quakes' : 'lightnings'} witnessed`;
+        if (threat.progressCount >= threat.requiredCount) {
+          threat.fulfilled = true;
+          isUltimatumDone = true;
+        }
+      }
+
+      if (isUltimatumDone && threat) {
+        let finalDecision = null;
+        if (aiState.apiKey.trim()) {
+          const prompt = `You are ${actor.name} (${actor.isKing ? 'King/Ruler' : actor.job}, trait: ${actor.trait}, Fear ${Math.round(actor.fear)}%, Trust ${Math.round(actor.trust)}%) of ${nation.name}.
+Earlier, God gave you this ultimatum: "${threat.demandText}" or face ${threat.requiredCount} ${threat.power === 'quake' ? 'earthquakes' : 'lightnings'}.
+You just witnessed strike ${threat.progressCount}/${threat.requiredCount} (${powerWord}) right near you!
+React in terror/awe and fulfill or respond in JSON:
+- "decision": "accept" (unless an extreme martyr refuses)
+- "speech": vivid terrified reaction under 14 words acknowledging the ${threat.progressCount} strikes
+- "action": one of ["coup","rebel","change_policy","build","dig_trench","expand_border","build_dock","build_oilrig","settle_union","advance_era","found_capital","declare_war","make_peace","request_meeting","trade","gather","pray","none"]
+- "policy": optional {"tax":"low|balanced|heavy","border":"open|guarded|closed","focus":"economy|tech|military","governance":"Monarchy|Republic|Dictatorship|Socialism|Theocracy"}`;
+          try {
+            finalDecision = await callGeminiJSON(prompt);
+          } catch {
+            finalDecision = null;
+          }
+        }
+        if (!finalDecision) {
+          finalDecision = localDecisionEngine(actor.isKing ? 'king' : 'citizen', actor, nation, threat.demandText, { forceAfterWrath: true, threat });
+        }
+        applyAiDecision(actor, nation, finalDecision, { fromWrath: true });
+        return;
+      }
+
+      // Partial strike (e.g. 1 of 2 lightnings) or unprompted witnessed wrath reaction
+      let reactionSpeech = '';
+      if (aiState.apiKey.trim()) {
+        const ctx = threat && !threat.fulfilled
+          ? `Earlier God threatened "${threat.demandText}" unless you yield, warning of ${threat.requiredCount} strikes. You just witnessed ${powerWord} strike #${threat.progressCount} of ${threat.requiredCount} (${Math.round(dist)}m away).`
+          : `You just saw a terrifying divine ${powerWord} strike ${Math.round(dist)}m away (${impactCount > 0 ? impactCount + ' hit' : 'near your town'}).`;
+        const prompt = `You are ${actor.name} (${actor.isKing ? 'King/Ruler' : actor.job}, trait: ${actor.trait}, Fear ${Math.round(actor.fear)}%) of ${nation.name}.
+${ctx}
+Reply in JSON: {"speech":"dramatic 1-sentence reaction under 14 words"}`;
+        try {
+          const res = await callGeminiJSON(prompt);
+          if (res?.speech) reactionSpeech = String(res.speech).slice(0, 110);
+        } catch {
+          reactionSpeech = '';
+        }
+      }
+
+      if (!reactionSpeech) {
+        if (threat && !threat.fulfilled) {
+          const rem = Math.max(1, threat.requiredCount - threat.progressCount);
+          reactionSpeech = `${powerWord === 'lightning' ? '⚡' : '🌋'} ${threat.progressCount}/${threat.requiredCount}! ${rem} more and I will yield—spare us!`;
+        } else if (actor.fear > 60) {
+          reactionSpeech = `Mercy! The sky itself obeys your wrath!`;
+        } else {
+          reactionSpeech = `Did you see that ${powerWord}?! The gods are watching!`;
+        }
+      }
+
+      actor.speech = reactionSpeech;
+      actor.speechTimer = 6.0;
+      actor.chatPauseTimer = 8.5;
+      appendWhisperLog({
+        kind: 'reaction',
+        badge: threat && !threat.fulfilled ? `WITNESSED ${threat.progressCount}/${threat.requiredCount}` : 'WITNESSED WRATH',
+        sender: `${actor.isKing ? '👑 King ' + actor.name : actor.name} (${nation.name})`,
+        text: reactionSpeech,
+        actionNote: progressNote,
+        citizenId: actor.id,
+        nationId: nation.id
+      });
+      broadcastEvent(actor.name, `${actor.name}: "${reactionSpeech}"`, actor.x, actor.z);
+    }
+
+    function recordDivineWrath(tool, x, z, impactCount = 0) {
+      sim.divineActs.push({ tool, x, z, time: sim.time });
+      if (sim.divineActs.length > 20) sim.divineActs.shift();
+
+      const affectedNations = new Set();
+      for (const n of sim.nations) {
+        const cap = sim.buildings.find((b) => b.nationId === n.id && b.type === 'capital');
+        const capDist = cap ? Math.hypot(cap.x - x, cap.z - z) : 999;
+        const unitNear = sim.citizens.some((c) => c.nationId === n.id && Math.hypot(c.x - x, c.z - z) < 30);
+        if (capDist < 36 || unitNear) {
+          affectedNations.add(n.id);
+          if (tool === 'smite') n.witnessedSmite = (n.witnessedSmite || 0) + 1;
+          else n.witnessedQuake = (n.witnessedQuake || 0) + 1;
+        }
+      }
+
+      const reactors = [];
+      for (const c of sim.citizens) {
+        const d = Math.hypot(c.x - x, c.z - z);
+        const hasPendingThreat = !!(c.activeThreat && !c.activeThreat.fulfilled);
+        const recentChat = (sim.time - (c.lastWhisperAt ?? -999)) < 120;
+        const closeOrKing = d < 36 || (c.isKing && affectedNations.has(c.nationId));
+        if (!closeOrKing && !hasPendingThreat) continue;
+
+        if (d >= 12 && d < 36) {
+          c.fear = Math.min(100, (c.fear || 10) + 16);
+        }
+        if ((sim.time - (c.lastWrathReactAt ?? -999)) < 0.6) continue;
+
+        if (hasPendingThreat && (d < 48 || affectedNations.has(c.nationId))) {
+          reactors.push({ actor: c, dist: d, prio: 3 });
+        } else if (recentChat && d < 42) {
+          reactors.push({ actor: c, dist: d, prio: 2 });
+        } else if (c.isKing && affectedNations.has(c.nationId) && (sim.time - (c.lastWrathReactAt ?? -999)) > 3.5) {
+          reactors.push({ actor: c, dist: d, prio: 1 });
+        }
+      }
+
+      reactors.sort((a, b) => b.prio - a.prio || a.dist - b.dist);
+      for (const item of reactors.slice(0, 2)) {
+        const c = item.actor;
+        const n = getNation(c.nationId);
+        if (!n) continue;
+        c.lastWrathReactAt = sim.time;
+        reactToDivineWrath(c, n, tool, item.dist, impactCount);
+      }
+      if (typeof updateWhisperFocusBar === 'function') updateWhisperFocusBar();
+    }
+
     async function handleWhisper(targetValue, text) {
       const clean = text.trim();
       if (!clean) return { ok: false, msg: 'Enter a whisper first.' };
@@ -5471,29 +5966,83 @@
 
       if (targets.length === 0) return { ok: false, msg: 'No living target selected.' };
 
+      const threat = parseDivineThreat(clean);
+      const targetLabel = targetValue === 'all'
+        ? `All ${targets.length} Nations`
+        : (targets[0]?.actor ? (targets[0].actor.isKing ? `King ${targets[0].actor.name}` : targets[0].actor.name) : targets[0]?.nation?.name || 'Target');
+
+      appendWhisperLog({
+        kind: 'god',
+        badge: threat.hasThreat ? `THREAT · ${threat.requiredCount}x ${threat.power.toUpperCase()}` : 'WHISPER',
+        sender: `You (God) → ${targetLabel}`,
+        text: clean,
+        actionNote: threat.hasThreat ? `Demand: "${threat.demandText}" · Ultimatum armed (${threat.requiredCount} ${threat.power})` : ''
+      });
+
+      let acceptedCount = 0;
+      let rejectedCount = 0;
+
       for (const { actor, nation } of targets) {
         if (!nation) continue;
+        if (actor) {
+          actor.lastWhisperAt = sim.time;
+          actor.chatPauseTimer = 9.0;
+          if (threat.hasThreat) {
+            actor.activeThreat = {
+              demandText: threat.demandText,
+              power: threat.power,
+              requiredCount: threat.requiredCount,
+              progressCount: 0,
+              fulfilled: false,
+              issuedAt: sim.time,
+              nationId: nation.id
+            };
+          }
+        }
+
+        let resObj = null;
         if (aiState.apiKey.trim()) {
-          const prompt = `You are ${actor ? actor.name : 'the ruler'} (${actor ? (actor.isKing ? 'King/Ruler' : actor.job) : 'King'}, trait: ${actor ? actor.trait : 'Wise'}) of ${nation.name} (${ERAS[nation.era]}, Ideology ${nation.governance}, Union ${nation.unionState}, Stability ${nation.stability}%, Gold ${nation.resources.gold}, Tax ${nation.taxPolicy}, Borders ${nation.borderPolicy}).
+          const recentWrathCount = (sim.divineActs || []).filter((a) => sim.time - a.time < 45).length;
+          const prompt = `You are ${actor ? actor.name : 'the ruler'} (${actor ? (actor.isKing ? 'King/Ruler' : actor.job) : 'King'}, trait: ${actor ? actor.trait : 'Wise'}, Fear ${actor ? Math.round(actor.fear) : 15}%, Trust ${actor ? Math.round(actor.trust) : 60}%) of ${nation.name} (${ERAS[nation.era]}, Ideology ${nation.governance}, Union ${nation.unionState}, Stability ${nation.stability}%, Gold ${nation.resources.gold}, Tax ${nation.taxPolicy}, Borders ${nation.borderPolicy}).
+Recent divine wrath witnessed nearby in last 45s: ${recentWrathCount}.
 The Player (God) whispers to you: "${clean}".
-Evaluate your personality, stability, and nation state, and reply in JSON with keys:
+Evaluate your personality, fear, trust, and whether any threat feels real or empty. You may genuinely "accept" OR "reject"!
+Reply in JSON with keys:
 - "decision": "accept" or "reject"
-- "speech": short dramatic in-character quote under 12 words
+- "speech": short dramatic in-character quote under 14 words
 - "action": one of ["coup","rebel","change_policy","build","dig_trench","expand_border","build_dock","build_oilrig","settle_union","advance_era","found_capital","declare_war","make_peace","request_meeting","trade","gather","pray","none"]
 - "targetNation": optional neighbor nation name if requesting meeting or war
 - "policy": optional object with any of {"tax":"low|balanced|heavy","border":"open|guarded|closed","focus":"economy|tech|military","governance":"Monarchy|Republic|Dictatorship|Socialism|Theocracy"}`;
           try {
-            const res = await callGeminiJSON(prompt);
-            applyAiDecision(actor, nation, res);
-            continue;
+            resObj = await callGeminiJSON(prompt);
           } catch {
-            // Seamless fallback if rate limited or network error
+            resObj = null;
           }
         }
-        const fallback = localDecisionEngine(actor?.isKing ? 'king' : 'citizen', actor, nation, clean);
-        applyAiDecision(actor, nation, fallback);
+
+        if (!resObj) {
+          resObj = localDecisionEngine(actor?.isKing ? 'king' : 'citizen', actor, nation, clean, { threat });
+        }
+
+        if (resObj.decision === 'reject') {
+          rejectedCount++;
+        } else {
+          acceptedCount++;
+          if (actor?.activeThreat) actor.activeThreat.fulfilled = true;
+        }
+        applyAiDecision(actor, nation, resObj, { fromWhisper: true });
       }
-      return { ok: true, msg: 'Divine whisper delivered!' };
+
+      if (typeof renderWhisperTargets === 'function') renderWhisperTargets();
+      if (rejectedCount > 0 && acceptedCount === 0) {
+        return {
+          ok: true,
+          msg: threat.hasThreat
+            ? `Declined! Show ${threat.requiredCount} ${threat.power === 'quake' ? 'quake(s)' : 'lightning(s)'} nearby so they react.`
+            : 'They declined your whisper!'
+        };
+      }
+      return { ok: true, msg: rejectedCount > 0 ? `${acceptedCount} accepted, ${rejectedCount} declined.` : 'Divine whisper accepted!' };
     }
 
     async function tickAiBackground(dt) {
@@ -6395,6 +6944,9 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       sim.resources = [];
       sim.citizens = [];
       sim.fx = [];
+      sim.divineActs = [];
+      sim.whisperLog = [];
+      if (typeof renderWhisperLog === 'function') renderWhisperLog();
       sim.meeting = null;
       sim.meetingCooldown = 16;
       sim.selected = null;
@@ -6424,7 +6976,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         sim.resources.push({ ...r, mesh });
       }
       for (const c of (data.citizens || [])) {
-        const obj = { ...c, carrying: 0, carryType: null, workTimer: 0, speech: '', speechTimer: 0, chatterTimer: 2 + Math.random() * 9, animPhase: 0, rallyTimer: 0, mesh: null };
+        const obj = { ...c, carrying: 0, carryType: null, workTimer: 0, speech: '', speechTimer: 0, chatterTimer: 2 + Math.random() * 9, chatPauseTimer: 0, lastWhisperAt: -999, lastWrathReactAt: -999, activeThreat: null, animPhase: 0, rallyTimer: 0, mesh: null };
         obj.mesh = buildCitizenMesh(obj);
         obj.mesh.position.set(c.x, groundHeightAt(c.x, c.z), c.z);
         citizensGroup.add(obj.mesh);
@@ -6927,13 +7479,57 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       playerKeys[e.key.toLowerCase()] = false;
     });
 
-    // Whisper Modal Wiring (Clean Category Tabs + Visual King/Target Cards)
+    // Whisper Modal Wiring (Clean Category Tabs + Visual Target Cards + Conversation Log + Follow)
     const whisperModal = document.getElementById('whisper-modal');
     const whisperTargetSel = document.getElementById('whisper-target-select');
     const whisperTargetList = document.getElementById('whisper-target-list');
+    const whisperTargetMeta = document.getElementById('whisper-target-meta');
+    const btnWhisperFollow = document.getElementById('btn-whisper-follow');
+    const whisperToastEl = document.getElementById('whisper-toast');
     const whisperInput = document.getElementById('whisper-input');
     const whisperStatus = document.getElementById('whisper-status');
     let whisperTab = 'kings';
+
+    function getWhisperTargetContext(val = whisperTargetSel.value) {
+      if (!val) return null;
+      if (val.startsWith('nation:')) {
+        const n = getNation(Number(val.split(':')[1]));
+        const k = n ? getKingOf(n.id) : null;
+        return n ? { actor: k, nation: n } : null;
+      }
+      if (val.startsWith('citizen:')) {
+        const c = getCitizen(Number(val.split(':')[1]));
+        return c ? { actor: c, nation: getNation(c.nationId) } : null;
+      }
+      return null;
+    }
+
+    function updateWhisperFocusBar() {
+      if (!whisperTargetMeta || !btnWhisperFollow) return;
+      const val = whisperTargetSel.value;
+      if (val === 'all') {
+        whisperTargetMeta.textContent = `Broadcasting to all ${sim.nations.length} Kings · Rulers hold position while listening`;
+        btnWhisperFollow.style.display = 'none';
+        return;
+      }
+      const ctx = getWhisperTargetContext(val);
+      if (!ctx || (!ctx.actor && !ctx.nation)) {
+        whisperTargetMeta.textContent = 'Select a target to track Fear, Trust & active threats.';
+        btnWhisperFollow.style.display = 'none';
+        return;
+      }
+      const a = ctx.actor;
+      const n = ctx.nation;
+      btnWhisperFollow.style.display = 'inline-flex';
+      if (a) {
+        const threatTxt = a.activeThreat && !a.activeThreat.fulfilled
+          ? ` · ⚡ Threat ${a.activeThreat.progressCount}/${a.activeThreat.requiredCount} ${a.activeThreat.power}`
+          : '';
+        whisperTargetMeta.textContent = `${a.isKing ? '👑 King ' + a.name : a.name} (${n ? n.name : ''}) · Fear ${Math.round(a.fear || 0)}% · Trust ${Math.round(a.trust || 0)}% · ${a.trait}${threatTxt}`;
+      } else if (n) {
+        whisperTargetMeta.textContent = `${n.name} · Stability ${n.stability}%`;
+      }
+    }
 
     function renderWhisperTargets() {
       if (!whisperTargetList) return;
@@ -6949,7 +7545,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
             val: `nation:${n.id}`,
             color: FACTION_PALETTE[n.factionIdx].css,
             title: `👑 ${king ? 'King ' + king.name : 'Ruler'} — ${n.name}`,
-            sub: `${ERAS[n.era]} · ${n.governance} · Stab ${n.stability}%`
+            sub: `${ERAS[n.era]} · Fear ${king ? Math.round(king.fear) : 0}% · Stab ${n.stability}%`
           });
         }
       } else if (whisperTab === 'all') {
@@ -6967,7 +7563,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
             val: `citizen:${gen.id}`,
             color: FACTION_PALETTE[n.factionIdx].css,
             title: `★ Gen. ${gen.name} (${n.name})`,
-            sub: `${gen.trait} · ${getDoctrine(n).name}`
+            sub: `${gen.trait} · Fear ${Math.round(gen.fear)}%`
           });
         }
       } else if (whisperTab === 'awakened') {
@@ -6994,6 +7590,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
 
       if (items.length === 0) {
         whisperTargetList.innerHTML = `<div class="helper-note" style="margin:6px 0;">No targets in this category yet.</div>`;
+        updateWhisperFocusBar();
         return;
       }
 
@@ -7015,8 +7612,10 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         card.onclick = () => {
           whisperTargetSel.value = card.dataset.wval;
           whisperTargetList.querySelectorAll('.whisper-card').forEach((el) => el.classList.toggle('active', el === card));
+          updateWhisperFocusBar();
         };
       });
+      updateWhisperFocusBar();
     }
 
     document.querySelectorAll('#whisper-tabs .whisper-tab').forEach((tab) => {
@@ -7025,6 +7624,46 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         renderWhisperTargets();
       };
     });
+
+    if (btnWhisperFollow) {
+      btnWhisperFollow.onclick = () => {
+        const ctx = getWhisperTargetContext(whisperTargetSel.value);
+        if (!ctx) return;
+        if (ctx.actor) {
+          ctx.actor.chatPauseTimer = Math.max(ctx.actor.chatPauseTimer || 0, 10);
+          sim.followCitizenId = ctx.actor.id;
+          sim.selected = { type: 'citizen', id: ctx.actor.id };
+          glideCameraTo(ctx.actor.x, groundHeightAt(ctx.actor.x, ctx.actor.z), ctx.actor.z, 17);
+        } else if (ctx.nation) {
+          const cap = sim.buildings.find((b) => b.nationId === ctx.nation.id && b.type === 'capital');
+          if (cap) {
+            sim.selected = { type: 'nation', id: ctx.nation.id };
+            glideCameraTo(cap.x, groundHeightAt(cap.x, cap.z), cap.z, 22);
+          }
+        }
+        updateInspectorUI();
+        whisperModal.classList.remove('open');
+      };
+    }
+
+    if (whisperToastEl) {
+      whisperToastEl.onclick = () => {
+        const cid = Number(whisperToastEl.dataset.citizenId || 0);
+        const nid = Number(whisperToastEl.dataset.nationId || 0);
+        whisperToastEl.classList.remove('show');
+        const c = cid ? getCitizen(cid) : null;
+        if (c) {
+          sim.followCitizenId = c.id;
+          sim.selected = { type: 'citizen', id: c.id };
+          glideCameraTo(c.x, groundHeightAt(c.x, c.z), c.z, 18);
+          openWhisperModal(c.isKing ? `nation:${c.nationId}` : `citizen:${c.id}`);
+        } else if (nid) {
+          openWhisperModal(`nation:${nid}`);
+        } else {
+          openWhisperModal();
+        }
+      };
+    }
 
     function openWhisperModal(preselect = null) {
       let chosen = preselect;
@@ -7047,11 +7686,14 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       } else if (chosen === 'all') {
         whisperTab = 'all';
       } else if (chosen.startsWith('citizen:')) {
-        whisperTab = 'citizens';
+        const sc = getCitizen(Number(chosen.split(':')[1]));
+        whisperTab = sc?.job === 'general' ? 'generals' : sc?.awakened ? 'awakened' : 'citizens';
       }
 
+      if (whisperToastEl) whisperToastEl.classList.remove('show');
       whisperTargetSel.value = chosen || 'all';
       renderWhisperTargets();
+      renderWhisperLog();
       whisperStatus.textContent = '';
       whisperModal.classList.add('open');
       whisperInput.focus();
@@ -7064,6 +7706,12 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         whisperInput.value = chip.dataset.msg;
       };
     });
+    whisperInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btn-send-whisper').click();
+      }
+    });
     document.getElementById('btn-send-whisper').onclick = async () => {
       const btn = document.getElementById('btn-send-whisper');
       btn.disabled = true;
@@ -7075,7 +7723,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       whisperStatus.textContent = res.msg;
       if (res.ok) {
         whisperInput.value = '';
-        setTimeout(() => whisperModal.classList.remove('open'), 450);
+        updateWhisperFocusBar();
       }
     };
 
