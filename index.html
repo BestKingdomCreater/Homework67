@@ -393,6 +393,11 @@
       color: #CFFAFE;
     }
 
+    .power-btn.awaken-locked {
+      opacity: 0.56;
+      border: 1px dashed rgba(148, 163, 184, 0.45);
+    }
+
     .power-btn.whisper-btn {
       background: rgba(59, 130, 246, 0.16);
       border-color: rgba(59, 130, 246, 0.45);
@@ -1973,11 +1978,12 @@
     const bordersGroup = new THREE.Group();
     const buildingsGroup = new THREE.Group();
     const boatsGroup = new THREE.Group();
+    const carsGroup = new THREE.Group();
     const citizensGroup = new THREE.Group();
     const fxGroup = new THREE.Group();
     const weatherGroup = new THREE.Group();
 
-    worldGroup.add(terrainGroup, roadsGroup, bordersGroup, resourcesGroup, buildingsGroup, boatsGroup, citizensGroup, fxGroup);
+    worldGroup.add(terrainGroup, roadsGroup, bordersGroup, resourcesGroup, buildingsGroup, boatsGroup, carsGroup, citizensGroup, fxGroup);
     scene.add(weatherGroup);
 
     // Pre-allocated math helpers (Zero-GC in render loop)
@@ -2014,7 +2020,16 @@
       crop: new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.85 }),
       leaf: new THREE.MeshStandardMaterial({ color: 0x2f7d32, roughness: 0.85 }),
       berry: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 }),
-      ore: new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.65, roughness: 0.25 })
+      ore: new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.65, roughness: 0.25 }),
+      white: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.55 }),
+      tire: new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.92 }),
+      carPaints: [
+        new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.35, roughness: 0.35 }),
+        new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.35, roughness: 0.35 }),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.35, roughness: 0.35 }),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.35, roughness: 0.35 }),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.35, roughness: 0.35 })
+      ]
     };
 
     const factionMats = FACTION_PALETTE.map((f) => ({
@@ -2037,7 +2052,11 @@
       beacon: new THREE.OctahedronGeometry(0.22, 0),
       toolShaft: new THREE.CylinderGeometry(0.03, 0.03, 0.55, 5),
       toolHead: new THREE.BoxGeometry(0.16, 0.1, 0.1),
-      bundle: new THREE.DodecahedronGeometry(0.15, 0)
+      bundle: new THREE.DodecahedronGeometry(0.15, 0),
+      carChassis: new THREE.BoxGeometry(0.58, 0.24, 1.08),
+      carCabin: new THREE.BoxGeometry(0.46, 0.2, 0.56),
+      carWheel: new THREE.CylinderGeometry(0.12, 0.12, 0.1, 8),
+      carLight: new THREE.BoxGeometry(0.1, 0.06, 0.04)
     };
 
     let terrainMesh = null;
@@ -2769,8 +2788,10 @@
       citizens: [],
       buildings: [],
       boats: [],
+      cars: [],
       resources: [],
       roads: [],
+      roadSegments: [],
       walls: [],
       fx: [],
       divineActs: [],
@@ -2961,7 +2982,7 @@
     }
 
     function clearWorldMeshes() {
-      [resourcesGroup, roadsGroup, bordersGroup, buildingsGroup, boatsGroup, citizensGroup, fxGroup].forEach((grp) => {
+      [resourcesGroup, roadsGroup, bordersGroup, buildingsGroup, boatsGroup, carsGroup, citizensGroup, fxGroup].forEach((grp) => {
         while (grp.children.length > 0) {
           const obj = grp.children[0];
           grp.remove(obj);
@@ -3046,37 +3067,191 @@
       }
     }
 
+    function distToSegSq(px, pz, ax, az, bx, bz) {
+      const vx = bx - ax;
+      const vz = bz - az;
+      const lenSq = vx * vx + vz * vz;
+      if (lenSq < 1e-6) return (px - ax) * (px - ax) + (pz - az) * (pz - az);
+      const t = Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / lenSq));
+      const cx = ax + vx * t;
+      const cz = az + vz * t;
+      return (px - cx) * (px - cx) + (pz - cz) * (pz - cz);
+    }
+
+    function createCarMesh(paintIdx) {
+      const g = new THREE.Group();
+      const paint = MATS.carPaints[paintIdx % MATS.carPaints.length];
+      const body = new THREE.Mesh(GEOS.carChassis, paint);
+      body.position.y = 0.22;
+      body.castShadow = !isSoftwareGl;
+      g.add(body);
+
+      const cabin = new THREE.Mesh(GEOS.carCabin, MATS.glass);
+      cabin.position.set(0, 0.42, -0.05);
+      g.add(cabin);
+
+      const offsets = [
+        [-0.29, 0.12, 0.34], [0.29, 0.12, 0.34],
+        [-0.29, 0.12, -0.34], [0.29, 0.12, -0.34]
+      ];
+      for (const [wx, wy, wz] of offsets) {
+        const w = new THREE.Mesh(GEOS.carWheel, MATS.tire);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(wx, wy, wz);
+        g.add(w);
+      }
+
+      const hlL = new THREE.Mesh(GEOS.carLight, MATS.goldGlow);
+      hlL.position.set(-0.18, 0.23, 0.55);
+      const hlR = new THREE.Mesh(GEOS.carLight, MATS.goldGlow);
+      hlR.position.set(0.18, 0.23, 0.55);
+      g.add(hlL, hlR);
+      return g;
+    }
+
+    function syncCars() {
+      const roadSegs = sim.roadSegments || [];
+      if (!sim.smartInfra || roadSegs.length === 0) {
+        while (carsGroup.children.length > 0) carsGroup.remove(carsGroup.children[0]);
+        sim.cars = [];
+        return;
+      }
+
+      // Compute desired vehicle quota per nation (Industrial = 1, Modern = 3)
+      const desiredIds = new Set();
+      let totalTarget = 0;
+      for (const n of sim.nations) {
+        if (n.era < 2) continue;
+        const nSegs = roadSegs.filter((s) => s.nationId === n.id || s.otherNationId === n.id);
+        if (nSegs.length === 0) continue;
+        const quota = n.era >= 3 ? 3 : 1;
+        const existing = sim.cars.filter((c) => c.nationId === n.id);
+        for (let i = existing.length; i < quota && totalTarget + existing.length < 14; i++) {
+          const seg = nSegs[i % nSegs.length];
+          const car = {
+            id: uid(),
+            nationId: n.id,
+            ax: seg.ax, az: seg.az,
+            bx: seg.bx, bz: seg.bz,
+            t: Math.random() * 0.6,
+            dir: 1,
+            x: seg.ax,
+            z: seg.az,
+            speed: n.era >= 3 ? 4.8 + Math.random() * 1.4 : 3.2,
+            mesh: createCarMesh(n.factionIdx + i)
+          };
+          carsGroup.add(car.mesh);
+          sim.cars.push(car);
+        }
+        desiredIds.add(n.id);
+        totalTarget += Math.min(quota, sim.cars.filter((c) => c.nationId === n.id).length);
+      }
+
+      for (let i = sim.cars.length - 1; i >= 0; i--) {
+        if (!desiredIds.has(sim.cars[i].nationId)) {
+          if (sim.cars[i].mesh) carsGroup.remove(sim.cars[i].mesh);
+          sim.cars.splice(i, 1);
+        }
+      }
+    }
+
+    function updateCars(dt) {
+      if (!sim.cars || sim.cars.length === 0 || !sim.roadSegments || sim.roadSegments.length === 0) return;
+      for (let i = sim.cars.length - 1; i >= 0; i--) {
+        const car = sim.cars[i];
+        const segDx = car.bx - car.ax;
+        const segDz = car.bz - car.az;
+        const segLen = Math.hypot(segDx, segDz);
+        if (segLen < 0.8) continue;
+
+        car.t += (car.dir * car.speed * dt) / segLen;
+        if (car.t >= 1 || car.t <= 0) {
+          const endX = car.t >= 1 ? car.bx : car.ax;
+          const endZ = car.t >= 1 ? car.bz : car.az;
+          const nextCandidates = sim.roadSegments.filter((s) =>
+            (Math.hypot(s.ax - endX, s.az - endZ) < 1.5 || Math.hypot(s.bx - endX, s.bz - endZ) < 1.5) &&
+            !(Math.hypot(s.ax - car.ax, s.az - car.az) < 0.5 && Math.hypot(s.bx - car.bx, s.bz - car.bz) < 0.5)
+          );
+          if (nextCandidates.length > 0 && Math.random() < 0.78) {
+            const nxt = pick(nextCandidates);
+            car.ax = nxt.ax; car.az = nxt.az;
+            car.bx = nxt.bx; car.bz = nxt.bz;
+            const atStart = Math.hypot(nxt.ax - endX, nxt.az - endZ) < 1.5;
+            car.dir = atStart ? 1 : -1;
+            car.t = atStart ? 0.02 : 0.98;
+          } else {
+            car.dir *= -1;
+            car.t = Math.max(0.01, Math.min(0.99, car.t));
+          }
+        }
+
+        const fx = car.ax + (car.bx - car.ax) * car.t;
+        const fz = car.az + (car.bz - car.az) * car.t;
+        const ddx = (car.bx - car.ax) * car.dir;
+        const ddz = (car.bz - car.az) * car.dir;
+        const dlen = Math.hypot(ddx, ddz) || 1;
+        // Right-hand driving lane offset so oncoming cars pass cleanly
+        const laneOff = 0.28;
+        const px = fx + (-ddz / dlen) * laneOff;
+        const pz = fz + (ddx / dlen) * laneOff;
+        car.x = px;
+        car.z = pz;
+        if (car.mesh) {
+          car.mesh.position.set(px, fastGroundHeightAt(px, pz) + 0.08, pz);
+          car.mesh.rotation.y = Math.atan2(ddx, ddz);
+        }
+      }
+    }
+
     function rebuildRoads() {
       while (roadsGroup.children.length > 0) {
         const ch = roadsGroup.children[0];
         roadsGroup.remove(ch);
         if (ch.geometry) ch.geometry.dispose();
       }
-      if (!sim.smartInfra) return;
+      sim.roadSegments = [];
+      if (!sim.smartInfra) {
+        syncCars();
+        return;
+      }
 
-      const addRoadSeg = (x1, z1, x2, z2, era) => {
+      const addRoadSeg = (x1, z1, x2, z2, era, nationId = 0, otherNationId = 0) => {
         const dist = Math.hypot(x2 - x1, z2 - z1);
-        if (dist < 1.5 || dist > 65) return;
-        const steps = Math.min(18, Math.max(3, Math.floor(dist / 2.2)));
+        if (dist < 1.5 || dist > 75) return;
+        sim.roadSegments.push({ nationId, otherNationId, ax: x1, az: z1, bx: x2, bz: z2, era });
+        const steps = Math.min(20, Math.max(3, Math.floor(dist / 2.2)));
         const mat = era === 0 ? MATS.thatch : era === 1 ? MATS.stone : MATS.darkStone;
+        const width = era >= 3 ? 1.38 : era === 2 ? 1.24 : 1.08;
+        const yaw = Math.atan2(x2 - x1, z2 - z1);
         for (let s = 0; s < steps; s++) {
           const t = (s + 0.5) / steps;
           const rx = x1 + (x2 - x1) * t;
           const rz = z1 + (z2 - z1) * t;
           if (!isLand(rx, rz)) continue;
-          const seg = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, dist / steps + 0.2), mat);
-          seg.position.set(rx, groundHeightAt(rx, rz) + 0.05, rz);
-          seg.rotation.y = Math.atan2(x2 - x1, z2 - z1);
+          const gy = groundHeightAt(rx, rz);
+          const seg = new THREE.Mesh(new THREE.BoxGeometry(width, 0.08, dist / steps + 0.22), mat);
+          seg.position.set(rx, gy + 0.05, rz);
+          seg.rotation.y = yaw;
           seg.receiveShadow = !isSoftwareGl;
           roadsGroup.add(seg);
 
-          // Modern / Industrial streetlamps
+          // Crisp Modern Age center lane markings
+          if (era >= 3 && s % 2 === 0) {
+            const dash = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, (dist / steps) * 0.55), MATS.white);
+            dash.position.set(rx, gy + 0.095, rz);
+            dash.rotation.y = yaw;
+            roadsGroup.add(dash);
+          }
+
+          // Modern / Industrial roadside streetlamps
           if (era >= 2 && s % 4 === 2) {
+            const perpX = Math.cos(yaw) * 0.78;
+            const perpZ = -Math.sin(yaw) * 0.78;
             const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.3, 5), MATS.iron);
-            lamp.position.set(rx + 0.65, groundHeightAt(rx, rz) + 0.65, rz);
+            lamp.position.set(rx + perpX, gy + 0.65, rz + perpZ);
             roadsGroup.add(lamp);
             const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), MATS.goldGlow);
-            bulb.position.set(rx + 0.65, groundHeightAt(rx, rz) + 1.32, rz);
+            bulb.position.set(rx + perpX, gy + 1.32, rz + perpZ);
             roadsGroup.add(bulb);
           }
         }
@@ -3088,7 +3263,7 @@
         if (!cap) continue;
         const others = sim.buildings.filter((b) => b.nationId === n.id && b.id !== cap.id && b.type !== 'trench' && b.type !== 'oilrig');
         for (const b of others) {
-          addRoadSeg(cap.x, cap.z, b.x, b.z, n.era);
+          addRoadSeg(cap.x, cap.z, b.x, b.z, n.era, n.id, 0);
         }
       }
 
@@ -3101,7 +3276,7 @@
           if (a.borderPolicy === 'closed' || b.borderPolicy === 'closed') continue;
           const cA = sim.buildings.find((x) => x.nationId === a.id && x.type === 'capital');
           const cB = sim.buildings.find((x) => x.nationId === b.id && x.type === 'capital');
-          if (cA && cB) addRoadSeg(cA.x, cA.z, cB.x, cB.z, Math.max(a.era, b.era));
+          if (cA && cB) addRoadSeg(cA.x, cA.z, cB.x, cB.z, Math.max(a.era, b.era), a.id, b.id);
         }
       }
 
@@ -3109,9 +3284,11 @@
       if (sim.meeting && sim.meeting.pavilionBuilt) {
         const cH = sim.buildings.find((x) => x.nationId === sim.meeting.hostId && x.type === 'capital');
         const cG = sim.buildings.find((x) => x.nationId === sim.meeting.guestId && x.type === 'capital');
-        if (cH) addRoadSeg(cH.x, cH.z, sim.meeting.x, sim.meeting.z, 1);
-        if (cG) addRoadSeg(cG.x, cG.z, sim.meeting.x, sim.meeting.z, 1);
+        if (cH) addRoadSeg(cH.x, cH.z, sim.meeting.x, sim.meeting.z, 1, sim.meeting.hostId, 0);
+        if (cG) addRoadSeg(cG.x, cG.z, sim.meeting.x, sim.meeting.z, 1, sim.meeting.guestId, 0);
       }
+
+      syncCars();
     }
 
     function addBuilding(nationId, type, x, z, rotY = 0) {
@@ -3381,19 +3558,56 @@
         return null;
       }
 
-      const minR = type === 'tower' ? Math.max(6, nation.borderRadius - 2) : 4.5;
-      const maxR = type === 'tower' ? nation.borderRadius + 0.5 : Math.max(9, nation.borderRadius - 2);
+      const density = nation.housingDensity || 'balanced';
+      const existingHouses = sim.buildings.filter((b) => b.nationId === nation.id && b.type === 'house');
+      const minR = type === 'tower' ? Math.max(6, nation.borderRadius - 2) : 3.6;
+      const maxR = type === 'tower' ? nation.borderRadius + 0.5 : Math.max(10.5, nation.borderRadius - 1.1);
+      const baseSpacing = type === 'farm'
+        ? 3.1
+        : density === 'crowded'
+          ? 2.2
+          : density === 'spacious'
+            ? 3.55
+            : 2.75;
+      const roadClearSq = 1.65 * 1.65;
 
-      for (let attempt = 0; attempt < 24; attempt++) {
-        const ang = Math.random() * Math.PI * 2;
-        const rad = minR + Math.random() * (maxR - minR);
-        const tx = cap.x + Math.cos(ang) * rad;
-        const tz = cap.z + Math.sin(ang) * rad;
+      for (let attempt = 0; attempt < 48; attempt++) {
+        let tx = 0;
+        let tz = 0;
+        // When crowded, pack new houses close to existing houses in dense urban blocks
+        if (type === 'house' && density === 'crowded' && existingHouses.length > 0 && attempt < 26) {
+          const anchor = existingHouses[attempt % existingHouses.length];
+          const ang = Math.random() * Math.PI * 2;
+          const rOff = 2.3 + Math.random() * 1.3;
+          tx = anchor.x + Math.cos(ang) * rOff;
+          tz = anchor.z + Math.sin(ang) * rOff;
+          const dCap = Math.hypot(tx - cap.x, tz - cap.z);
+          if (dCap < minR || dCap > maxR) continue;
+        } else {
+          const ang = Math.random() * Math.PI * 2;
+          const rad = minR + Math.random() * (maxR - minR);
+          tx = cap.x + Math.cos(ang) * rad;
+          tz = cap.z + Math.sin(ang) * rad;
+        }
+
         if (!isLand(tx, tz)) continue;
-        if (sim.smartInfra && terrainSlopeAt(tx, tz) > 0.65) continue;
-        const minSpacing = sim.smartInfra ? 3.8 : 2.3;
-        const overlaps = sim.buildings.some((b) => Math.hypot(b.x - tx, b.z - tz) < minSpacing);
-        if (!overlaps) return { x: tx, z: tz, rotY: 0 };
+        if (sim.smartInfra && terrainSlopeAt(tx, tz) > 0.68) continue;
+
+        // Keep cardinal avenue corridors open around Capital for roads & Modern Age cars
+        if (sim.smartInfra && (Math.abs(tx - cap.x) < 1.5 || Math.abs(tz - cap.z) < 1.5)) continue;
+        if (sim.smartInfra && (sim.roadSegments || []).some((s) => distToSegSq(tx, tz, s.ax, s.az, s.bx, s.bz) < roadClearSq)) {
+          continue;
+        }
+
+        const minSpacing = sim.smartInfra ? baseSpacing : Math.min(2.2, baseSpacing);
+        const overlaps = sim.buildings.some((b) => {
+          const need = (b.type === 'capital') ? Math.max(3.4, minSpacing) : minSpacing;
+          return Math.hypot(b.x - tx, b.z - tz) < need;
+        });
+        if (!overlaps) {
+          const rotY = Math.atan2(cap.x - tx, cap.z - tz);
+          return { x: tx, z: tz, rotY };
+        }
       }
       return null;
     }
@@ -3478,6 +3692,13 @@
       return true;
     }
 
+    function deriveInitialHousingDensity(kingTrait, governance) {
+      if (governance === 'Dictatorship' || governance === 'Socialism') return 'crowded';
+      if (['Ambitious', 'Stubborn', 'Cunning'].includes(kingTrait)) return 'crowded';
+      if (['Wise', 'Devout'].includes(kingTrait)) return 'spacious';
+      return 'balanced';
+    }
+
     function createNation(name, x, z, factionIdx, era = 0) {
       const id = uid();
       const faction = FACTION_PALETTE[factionIdx % FACTION_PALETTE.length];
@@ -3490,11 +3711,12 @@
         stability: 78,
         revoltCooldown: 0,
         governance: 'Monarchy', // Monarchy | Republic | Dictatorship | Socialism | Theocracy
+        housingDensity: 'balanced', // crowded | balanced | spacious
         taxPolicy: 'balanced', // low | balanced | heavy
         borderPolicy: 'open', // open | guarded | closed
         focusPriority: 'economy', // economy | tech | military
         strategyPosture: 'balanced', // defensive | balanced | aggressive
-        borderRadius: 11,
+        borderRadius: 12,
         expandCooldown: 0,
         unionState: 'none', // none | organized | striking | accord
         unionTimer: 0,
@@ -3517,6 +3739,7 @@
       addBuilding(id, 'capital', x, z);
       // Initial King + General + Royal Guard + Soldiers + Gatherers
       const king = spawnCitizen(id, x + 0.8, z + 1.8, { isKing: true, job: 'guard' });
+      nation.housingDensity = deriveInitialHousingDensity(king.trait, nation.governance);
       spawnCitizen(id, x + 1.6, z + 1.2, { job: 'general', trait: pick(['Brave', 'Cunning', 'Ambitious']) });
       spawnCitizen(id, x - 1.2, z + 1.8, { job: 'guard' });
       spawnCitizen(id, x + 2.4, z + 0.6, { job: 'soldier' });
@@ -3577,7 +3800,9 @@
       sim.citizens = [];
       sim.buildings = [];
       sim.boats = [];
+      sim.cars = [];
       sim.resources = [];
+      sim.roadSegments = [];
       sim.fx = [];
       sim.divineActs = [];
       sim.whisperLog = [];
@@ -4045,11 +4270,37 @@
       updateInspectorUI();
     }
 
+    async function activateAwakenedGemini(c) {
+      if (!c || !c.awakened || !hasGeminiKey()) return;
+      const nation = getNation(c.nationId);
+      if (!nation || aiState.bgBusy) return;
+      aiState.bgBusy = true;
+      aiState.lastBgCallMs = Date.now();
+      try {
+        const prompt = `You are ${c.name} (${c.job}, trait: ${c.trait}) in ${nation.name} (${ERAS[nation.era]}, Stability ${nation.stability}%, Tax ${nation.taxPolicy}, Housing ${nation.housingDensity || 'balanced'}).
+God just touched your mind with Gemini AI awakening! Speak your first awakened thought and choose an immediate initiative in JSON:
+{"decision":"accept","speech":"vivid 1-sentence greeting under 12 words","action":"build|gather|pray|trade|none"}`;
+        const res = await callGeminiJSON(prompt);
+        applyAiDecision(c, nation, res);
+      } catch (err) {
+        c.speech = 'I feel the divine Gemini spark!';
+        c.speechTimer = 4.2;
+      } finally {
+        aiState.bgBusy = false;
+      }
+    }
+
     function toggleAwakenCitizen(c) {
       if (c.awakened) {
         c.awakened = false;
+        c.geminiConnected = false;
         syncCitizenVisuals(c);
-        broadcastEvent(c.name, `${c.name}'s divine halo faded.`, c.x, c.z);
+        broadcastEvent(c.name, `${c.name}'s Gemini Mind faded.`, c.x, c.z);
+        return;
+      }
+      if (!hasGeminiKey()) {
+        broadcastEvent('Awaken Locked', 'Add a Gemini API key in ⚙️ Settings to unlock Awaken!', c.x, c.z);
+        if (typeof promptGeminiKeyForAwaken === 'function') promptGeminiKeyForAwaken();
         return;
       }
       if (getAwakenedCount() >= 3) {
@@ -4058,11 +4309,13 @@
       }
       audio.playSfx('awaken');
       c.awakened = true;
-      c.speech = 'My mind sees all!';
-      c.speechTimer = 4;
+      c.geminiConnected = true;
+      c.speech = 'Gemini Mind awakened!';
+      c.speechTimer = 4.5;
       syncCitizenVisuals(c);
       spawnShockwave(c.x, c.z, 0x22d3ee, 4.5);
-      broadcastEvent('Awakened', `${c.name} received the Gemini Mind blessing!`, c.x, c.z);
+      broadcastEvent('Awakened', `${c.name} connected to Gemini AI!`, c.x, c.z);
+      activateAwakenedGemini(c);
     }
 
     // =========================================================================
@@ -4242,8 +4495,8 @@
     }
 
     function expandNationBorder(nation, amount = 2.0, silent = false) {
-      if (!nation || nation.borderRadius >= 32) return false;
-      nation.borderRadius = Math.min(32, +(nation.borderRadius + amount).toFixed(1));
+      if (!nation || nation.borderRadius >= 34) return false;
+      nation.borderRadius = Math.min(34, +(nation.borderRadius + amount).toFixed(1));
       rebuildBordersAndWalls();
       const cap = sim.buildings.find((b) => b.nationId === nation.id && b.type === 'capital');
       if (cap) spawnShockwave(cap.x, cap.z, FACTION_PALETTE[nation.factionIdx].color, 5.5);
@@ -4499,14 +4752,14 @@
         // Autonomous border expansion without waiting for a new Era
         n.expandCooldown = Math.max(0, (n.expandCooldown || 0) - 3.5);
         const desiredRadius = Math.min(
-          32,
-          12 + Math.floor(popList.length * 0.85) + houses * 1.6 + (n.focusPriority === 'military' ? 3 : 0) + n.era * 2
+          34,
+          13 + Math.floor(popList.length * 0.75) + houses * 1.35 + (n.focusPriority === 'military' ? 3 : 0) + n.era * 2
         );
-        if (n.expandCooldown <= 0 && n.borderRadius < desiredRadius && n.resources.gold >= 30 && n.resources.wood >= 12 && n.stability >= 38 && Math.random() < 0.72) {
-          n.resources.gold -= 22;
-          n.resources.wood -= 10;
-          n.expandCooldown = 12;
-          expandNationBorder(n, 2.0, false);
+        if (n.expandCooldown <= 0 && n.borderRadius < desiredRadius && n.resources.gold >= 24 && n.resources.wood >= 10 && n.stability >= 35 && Math.random() < 0.75) {
+          n.resources.gold -= 18;
+          n.resources.wood -= 8;
+          n.expandCooldown = 8;
+          expandNationBorder(n, 2.2, false);
         }
 
         // Stability calculation & Ideology + Union effects
@@ -4545,9 +4798,14 @@
           spawnCitizen(n.id, cap.x - 1.5, cap.z - 1.5, { job: 'woodcutter' });
         }
 
-        // Population growth when fed and housing available (including new jobs!)
-        const maxPop = 8 + houses * 4 + n.era * 3;
-        if (n.resources.food > 35 && popList.length < maxPop && cap && Math.random() < 0.48) {
+        // Trait/leader-influenced urban crowding & generous housing growth (>3 houses)
+        const kingNow = getKingOf(n.id);
+        if (!n.housingDensity) {
+          n.housingDensity = deriveInitialHousingDensity(kingNow ? kingNow.trait : 'Wise', n.governance);
+        }
+        const housingCapPerHome = n.housingDensity === 'crowded' ? 5 : n.housingDensity === 'spacious' ? 3 : 4;
+        const maxPop = 8 + houses * housingCapPerHome + n.era * 3;
+        if (n.resources.food > 35 && popList.length < maxPop && cap && Math.random() < 0.52) {
           const jobPool = n.focusPriority === 'military'
             ? ['soldier', 'soldier', 'medic', 'miner']
             : n.focusPriority === 'tech'
@@ -4579,6 +4837,7 @@
         const myTradeShips = myBoats.filter((bt) => bt.kind === 'merchant').length;
         const myWarships = myBoats.filter((bt) => bt.kind === 'warship').length;
         const mySpies = popList.filter((c) => c.job === 'spy').length;
+        const targetHouses = 6 + n.era * 3 + (n.housingDensity === 'crowded' ? 3 : 0);
 
         if (docks.length > 0 && myFishBoats < Math.min(2, docks.length) && n.resources.wood >= 20 && Math.random() < 0.45) {
           n.resources.wood -= 16;
@@ -4594,7 +4853,7 @@
           n.resources.metal -= 12;
           spawnBoat(n, docks[0], 'warship');
           broadcastEvent('Navy', `${n.name} commissioned a Naval Warship!`, docks[0].x, docks[0].z);
-        } else if (docks.length === 0 && n.resources.wood >= 28 && n.resources.gold >= 25 && Math.random() < 0.38) {
+        } else if (docks.length === 0 && n.resources.wood >= 28 && n.resources.gold >= 25 && Math.random() < 0.34) {
           n.resources.wood -= 22;
           n.resources.gold -= 20;
           buildNationDock(n, false);
@@ -4611,15 +4870,16 @@
           n.resources.wood -= 16;
           n.resources.stone -= 10;
           orderNationTrench(n, true);
-        } else if (n.resources.wood >= 30 && n.resources.gold >= 25 && Math.random() < 0.72) {
+        } else if (n.resources.wood >= 20 && n.resources.gold >= 14 && Math.random() < 0.8) {
           let wantType = 'house';
-          if (n.resources.food < 45) wantType = 'farm';
+          if (n.resources.food < 38) wantType = 'farm';
+          else if (houses < targetHouses || popList.length >= maxPop - 3) wantType = 'house';
           else if (workshops < 1 + n.era) wantType = 'workshop';
-          else if (n.borderPolicy !== 'open' && Math.random() < 0.45) wantType = 'tower';
+          else if (n.borderPolicy !== 'open' && Math.random() < 0.35) wantType = 'tower';
           const spot = findSmartBuildSpot(n, wantType);
           if (spot) {
-            n.resources.wood -= 22;
-            n.resources.gold -= 18;
+            n.resources.wood -= 16;
+            n.resources.gold -= 12;
             addBuilding(n.id, wantType, spot.x, spot.z, spot.rotY || 0);
             rebuildRoads();
           }
@@ -5329,6 +5589,10 @@
       awakenedTurnIdx: 0
     };
 
+    function hasGeminiKey() {
+      return !!(aiState.apiKey && aiState.apiKey.trim().length > 0);
+    }
+
     async function callGeminiJSON(promptText, modelOverride = null) {
       const apiKey = aiState.apiKey.trim();
       if (!apiKey) throw new Error('NO_KEY');
@@ -5543,6 +5807,9 @@
         }
         if (decision.policy.focus) nation.focusPriority = decision.policy.focus;
         if (decision.policy.governance) nation.governance = decision.policy.governance;
+        if (['crowded', 'balanced', 'spacious'].includes(decision.policy.housing)) {
+          nation.housingDensity = decision.policy.housing;
+        }
         broadcastEvent(nation.name, `${nation.name} updated policy: "${speech}"`, ax, az);
       } else if (act === 'advance_era') {
         if (!advanceNationEra(nation)) {
@@ -5758,6 +6025,12 @@
           }
           return { decision: 'accept', action: 'expand_border', speech: 'Push our borders outward!' };
         }
+        if (w.includes('crowd') || w.includes('dense') || w.includes('pack house')) {
+          return { decision: 'accept', action: 'change_policy', policy: { housing: 'crowded' }, speech: 'Pack new houses tightly beside our avenues!' };
+        }
+        if (w.includes('spacious') || w.includes('space out') || w.includes('spread house')) {
+          return { decision: 'accept', action: 'change_policy', policy: { housing: 'spacious' }, speech: 'Spread our homes with open gardens!' };
+        }
         if (w.includes('build')) {
           return { decision: 'accept', action: 'build', speech: 'Raise new walls and homes!' };
         }
@@ -5777,6 +6050,9 @@
         }
         if (nation.stability < 45 && nation.taxPolicy === 'heavy') {
           return { decision: 'accept', action: 'change_policy', policy: { tax: 'low' }, speech: 'Ease the tax burden!' };
+        }
+        if (['Ambitious', 'Stubborn', 'Cunning'].includes(actor?.trait) && nation.housingDensity !== 'crowded' && Math.random() < 0.25) {
+          return { decision: 'accept', action: 'change_policy', policy: { housing: 'crowded' }, speech: 'Pack more houses near the center!' };
         }
         if (sim.nations.length >= 2 && !sim.meeting && sim.meetingCooldown <= 0 &&
           (Object.values(nation.relations).includes('war') || nation.borderPolicy !== 'open') && Math.random() < 0.45) {
@@ -5798,10 +6074,10 @@
         if ((Object.values(nation.relations).includes('war') || nation.borderPolicy !== 'open') && Math.random() < 0.35) {
           return { decision: 'accept', action: 'dig_trench', speech: 'Fortify the front with trenches!' };
         }
-        if (nation.resources.gold > 95 && nation.borderRadius < 30 && Math.random() < 0.35) {
+        if (nation.resources.gold > 95 && nation.borderRadius < 34 && Math.random() < 0.35) {
           return { decision: 'accept', action: 'expand_border', speech: 'Claim new lands for our people!' };
         }
-        if (nation.resources.wood > 45 && Math.random() < 0.45) {
+        if (nation.resources.wood > 30 && Math.random() < 0.5) {
           return { decision: 'accept', action: 'build', speech: 'Build for tomorrow!' };
         }
         return { decision: 'accept', action: 'trade', speech: 'Prosperity through trade.' };
@@ -6050,8 +6326,7 @@ Reply in JSON with keys:
       aiState.kingCooldown += dt;
       aiState.awakenedCooldown += dt;
 
-      const now = Date.now();
-      const canCallExternal = aiState.apiKey.trim().length > 0 && !aiState.bgBusy && (now - aiState.lastBgCallMs >= 10000);
+      const keyActive = hasGeminiKey();
 
       // Autonomous Diplomatic Summit requests when nations coexist
       if (sim.nations.length >= 2 && !sim.meeting && sim.meetingCooldown <= 0 && Math.random() < dt * 0.06) {
@@ -6064,51 +6339,58 @@ Reply in JSON with keys:
         }
       }
 
-      // Tier 2: Nation Kings (every 30s staggered one nation at a time)
+      // Tier 2: Nation Kings (Gemini AI by default when API key is set; Heuristic AI fallback when no key)
       if (aiState.kingCooldown >= 30) {
-        aiState.kingCooldown = 0;
-        const n = sim.nations[aiState.kingTurnIdx % sim.nations.length];
-        aiState.kingTurnIdx++;
-        const king = n ? getKingOf(n.id) : null;
-        if (n && king) {
-          if (canCallExternal) {
+        const now = Date.now();
+        const canCallExternal = keyActive && !aiState.bgBusy && (now - aiState.lastBgCallMs >= 9000);
+        if (!keyActive) {
+          aiState.kingCooldown = 0;
+          const n = sim.nations[aiState.kingTurnIdx % sim.nations.length];
+          aiState.kingTurnIdx++;
+          const king = n ? getKingOf(n.id) : null;
+          if (n && king) applyAiDecision(king, n, localDecisionEngine('king', king, n));
+        } else if (canCallExternal) {
+          aiState.kingCooldown = 0;
+          const n = sim.nations[aiState.kingTurnIdx % sim.nations.length];
+          aiState.kingTurnIdx++;
+          const king = n ? getKingOf(n.id) : null;
+          if (n && king) {
             aiState.bgBusy = true;
             aiState.lastBgCallMs = now;
             const rivals = sim.nations.filter((o) => o.id !== n.id).map((o) => `${o.name} (${n.relations[o.id] || 'neutral'})`).join(', ');
-            const prompt = `You are King ${king.name} (${king.trait}) of ${n.name} (${ERAS[n.era]}, Stability ${n.stability}%, Border ${Math.round(n.borderRadius)}m, Gold ${n.resources.gold}, Food ${n.resources.food}, Tax ${n.taxPolicy}, Borders ${n.borderPolicy}). Neighbors: ${rivals || 'none'}.
-Decide one strategic action in JSON: {"decision":"accept","speech":"<8 words","action":"change_policy|build|dig_trench|expand_border|declare_war|make_peace|request_meeting|trade|none","targetNation":"optional name","policy":{"tax":"low|balanced|heavy","border":"open|guarded|closed"}}`;
+            const prompt = `You are King ${king.name} (${king.trait}) of ${n.name} (${ERAS[n.era]}, Stability ${n.stability}%, Border ${Math.round(n.borderRadius)}m, Housing ${n.housingDensity || 'balanced'}, Gold ${n.resources.gold}, Food ${n.resources.food}, Tax ${n.taxPolicy}, Borders ${n.borderPolicy}). Neighbors: ${rivals || 'none'}.
+Decide one strategic action in JSON: {"decision":"accept","speech":"<8 words","action":"change_policy|build|dig_trench|expand_border|declare_war|make_peace|request_meeting|trade|none","targetNation":"optional name","policy":{"tax":"low|balanced|heavy","border":"open|guarded|closed","housing":"crowded|balanced|spacious"}}`;
             callGeminiJSON(prompt)
               .then((res) => applyAiDecision(king, n, res))
               .catch(() => applyAiDecision(king, n, localDecisionEngine('king', king, n)))
               .finally(() => { aiState.bgBusy = false; });
-            return;
-          } else if (!aiState.apiKey.trim()) {
-            applyAiDecision(king, n, localDecisionEngine('king', king, n));
           }
         }
       }
 
-      // Tier 3: Awakened Champions (every 25s, max 3)
-      if (aiState.awakenedCooldown >= 25) {
-        aiState.awakenedCooldown = 0;
+      // Tier 3: Awakened Citizens (requires Gemini API key enabled)
+      if (aiState.awakenedCooldown >= 20) {
         const awakenedList = sim.citizens.filter((c) => c.awakened);
-        if (awakenedList.length > 0) {
+        if (!keyActive || awakenedList.length === 0) {
+          aiState.awakenedCooldown = 0;
+          return;
+        }
+        const now = Date.now();
+        const canCallExternal = !aiState.bgBusy && (now - aiState.lastBgCallMs >= 8000);
+        if (canCallExternal) {
+          aiState.awakenedCooldown = 0;
           const champ = awakenedList[aiState.awakenedTurnIdx % awakenedList.length];
           aiState.awakenedTurnIdx++;
           const n = getNation(champ.nationId);
           if (n) {
-            if (canCallExternal) {
-              aiState.bgBusy = true;
-              aiState.lastBgCallMs = now;
-              const prompt = `You are Awakened Citizen ${champ.name} (${champ.job}, ${champ.trait}) in ${n.name} (Stability ${n.stability}%, Tax ${n.taxPolicy}).
-Choose an autonomous move in JSON: {"decision":"accept","speech":"<8 words","action":"coup|rebel|build|gather|pray|none"}`;
-              callGeminiJSON(prompt)
-                .then((res) => applyAiDecision(champ, n, res))
-                .catch(() => applyAiDecision(champ, n, localDecisionEngine('awakened', champ, n)))
-                .finally(() => { aiState.bgBusy = false; });
-            } else if (!aiState.apiKey.trim()) {
-              applyAiDecision(champ, n, localDecisionEngine('awakened', champ, n));
-            }
+            aiState.bgBusy = true;
+            aiState.lastBgCallMs = now;
+            const prompt = `You are Awakened Citizen ${champ.name} (${champ.job}, ${champ.trait}) in ${n.name} (${ERAS[n.era]}, Stability ${n.stability}%, Tax ${n.taxPolicy}, Housing ${n.housingDensity || 'balanced'}).
+Choose an autonomous move in JSON: {"decision":"accept","speech":"<8 words","action":"coup|rebel|build|gather|pray|trade|none"}`;
+            callGeminiJSON(prompt)
+              .then((res) => applyAiDecision(champ, n, res))
+              .catch(() => applyAiDecision(champ, n, localDecisionEngine('awakened', champ, n)))
+              .finally(() => { aiState.bgBusy = false; });
           }
         }
       }
@@ -6642,15 +6924,20 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         const general = nation ? getGeneralOf(nation.id) : null;
         const doc = getDoctrine(nation);
         const roleLine = c.isKing
-          ? 'King / Ruler'
+          ? `King (${hasGeminiKey() ? 'Gemini AI' : 'Heuristic AI'})`
           : c.job === 'general'
             ? `General · ${doc.name}`
             : c.job.toUpperCase();
+        const awakenBtnLabel = c.awakened
+          ? 'Unawaken Gemini AI'
+          : hasGeminiKey()
+            ? `Awaken Gemini (${getAwakenedCount()}/3)`
+            : 'Awaken 🔒 (Needs API Key)';
         inspectorEl.classList.add('open');
         inspectorEl.innerHTML = `
           <div class="inspector-header">
             <div>
-              <h3 class="inspector-title">${c.isKing ? '👑 ' : c.job === 'general' ? '★ ' : ''}${c.name} ${c.awakened ? '· 👁 Awakened' : ''}</h3>
+              <h3 class="inspector-title">${c.isKing ? '👑 ' : c.job === 'general' ? '★ ' : ''}${c.name} ${c.awakened ? '· 👁 Gemini AI' : ''}</h3>
               <div class="inspector-sub">${roleLine} · ${nation ? nation.name : 'Wanderer'} · Trait: ${c.trait}</div>
             </div>
             <button class="close-btn" id="insp-close">✕</button>
@@ -6664,7 +6951,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
             <button class="btn-primary" id="insp-play-citizen">🎮 Play Citizen</button>
             <button class="btn-secondary" id="insp-follow-citizen">${sim.followCitizenId === c.id ? '📷 Unfollow' : '📷 Follow'}</button>
             <button class="btn-secondary" id="insp-whisper">Whisper</button>
-            <button class="btn-secondary" id="insp-awaken">${c.awakened ? 'Unawaken AI' : `Awaken AI (${getAwakenedCount()}/3)`}</button>
+            <button class="btn-secondary" id="insp-awaken">${awakenBtnLabel}</button>
             ${king ? `<button class="btn-secondary" id="insp-locate-king">Locate King</button>` : ''}
             ${general ? `<button class="btn-secondary" id="insp-locate-gen">Locate General</button>` : ''}
             ${nation ? `<button class="btn-secondary" id="insp-open-nation">Inspect Nation</button>` : ''}
@@ -6700,10 +6987,12 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
           return;
         }
         n.strategyPosture = n.strategyPosture || 'balanced';
+        n.housingDensity = n.housingDensity || 'balanced';
         const king = getKingOf(n.id);
         const general = getGeneralOf(n.id);
         const doc = getDoctrine(n);
         const pop = sim.citizens.filter((c) => c.nationId === n.id).length;
+        const housesCnt = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'house').length;
         const trenches = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'trench').length;
         const docks = sim.buildings.filter((b) => b.nationId === n.id && b.type === 'dock').length;
         const boats = sim.boats.filter((bt) => bt.nationId === n.id).length;
@@ -6718,7 +7007,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
           <div class="inspector-header">
             <div>
               <h3 class="inspector-title" style="color:${FACTION_PALETTE[n.factionIdx].css}">${n.name}</h3>
-              <div class="inspector-sub">${ERAS[n.era]} · ${n.governance} (${ideoInfo.desc}) · King: ${king ? king.name : 'None'}</div>
+              <div class="inspector-sub">${ERAS[n.era]} · ${n.governance} (${ideoInfo.desc}) · King: ${king ? king.name : 'None'} (${hasGeminiKey() ? 'Gemini AI' : 'Heuristic AI'})</div>
             </div>
             <button class="close-btn" id="insp-close">✕</button>
           </div>
@@ -6731,7 +7020,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
             <div class="stat-cell"><div class="stat-label">Metal / Tech</div><div class="stat-val">${n.resources.metal} / ${n.tech}${nextTech ? '/' + nextTech : ' MAX'}</div></div>
           </div>
           <div class="helper-note" style="margin-top:0;">
-            Territory: ${Math.round(n.borderRadius)}m · Trenches: ${trenches} · Docks/Boats: ${docks}/${boats} · Oil Rigs: ${oilRigs}<br>
+            Territory: ${Math.round(n.borderRadius)}m · Houses: ${housesCnt} (${n.housingDensity}) · Trenches: ${trenches} · Docks/Boats: ${docks}/${boats} · Oil Rigs: ${oilRigs}<br>
             Unions: <strong>${(n.unionState || 'none').toUpperCase()}</strong> · Diplomacy: ${wars.length ? 'At War: ' + wars.join(', ') : allies.length ? 'Allied: ' + allies.join(', ') : 'Neutral'}<br>
             General: ${general ? '★ ' + general.name : 'Promoting...'} · Doctrine: <strong>${doc.name}</strong>
           </div>
@@ -6747,6 +7036,12 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
               <span class="policy-label">Borders</span>
               <div class="seg-control">
                 ${['open', 'guarded', 'closed'].map((v) => `<button class="seg-btn ${n.borderPolicy === v ? 'active' : ''}" data-pol="border" data-val="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
+              </div>
+            </div>
+            <div class="policy-row">
+              <span class="policy-label">Housing</span>
+              <div class="seg-control">
+                ${['crowded', 'balanced', 'spacious'].map((v) => `<button class="seg-btn ${n.housingDensity === v ? 'active' : ''}" data-pol="housing" data-val="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
               </div>
             </div>
             <div class="policy-row">
@@ -6852,6 +7147,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
             const val = btn.dataset.val;
             if (pol === 'tax') n.taxPolicy = val;
             if (pol === 'border') { n.borderPolicy = val; rebuildBordersAndWalls(); rebuildRoads(); }
+            if (pol === 'housing') n.housingDensity = val;
             if (pol === 'focus') n.focusPriority = val;
             if (pol === 'strategy') n.strategyPosture = val;
             if (pol === 'gov') n.governance = val;
@@ -6868,7 +7164,21 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       document.getElementById('hud-era').textContent = ERAS[topEra] || 'Stone Age';
       document.getElementById('hud-pop').textContent = String(sim.citizens.length);
       document.getElementById('hud-nations').textContent = String(sim.nations.length);
-      document.getElementById('awaken-label').textContent = `Awaken ${getAwakenedCount()}/3`;
+
+      const keyOn = hasGeminiKey();
+      const awakenBtn = document.querySelector('.power-btn[data-tool="awaken"]');
+      document.getElementById('awaken-label').textContent = keyOn ? `Awaken ${getAwakenedCount()}/3` : 'Awaken 🔒';
+      if (awakenBtn) {
+        awakenBtn.classList.toggle('awaken-locked', !keyOn);
+        awakenBtn.title = keyOn ? 'Bless a citizen with Gemini AI autonomy (max 3)' : 'Requires Gemini API key in Settings';
+      }
+      if (!keyOn && sim.activeTool === 'awaken') {
+        sim.activeTool = 'select';
+        document.querySelectorAll('.power-btn[data-tool]').forEach((b) => {
+          b.classList.remove('active', 'awaken-active', 'possess-active');
+          if (b.dataset.tool === 'select') b.classList.add('active');
+        });
+      }
 
       const pillsEl = document.getElementById('nation-pills');
       if (pillsEl) {
@@ -6933,6 +7243,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       sim.nextId = data.nextId || 100;
       sim.nations = (data.nations || []).map((n) => ({
         ...n,
+        housingDensity: n.housingDensity || 'balanced',
         strategyPosture: n.strategyPosture || 'balanced',
         revoltCooldown: n.revoltCooldown || 0,
         expandCooldown: n.expandCooldown || 0,
@@ -6941,7 +7252,9 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       }));
       sim.buildings = [];
       sim.boats = [];
+      sim.cars = [];
       sim.resources = [];
+      sim.roadSegments = [];
       sim.citizens = [];
       sim.fx = [];
       sim.divineActs = [];
@@ -7029,6 +7342,12 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
     document.querySelectorAll('.power-btn[data-tool]').forEach((btn) => {
       btn.onclick = () => {
         const t = btn.dataset.tool;
+        if (t === 'awaken' && !hasGeminiKey()) {
+          broadcastEvent('Awaken Locked', 'Add a Gemini API key in ⚙️ Settings to unlock Awaken Mind!', 0, 0);
+          if (typeof promptGeminiKeyForAwaken === 'function') promptGeminiKeyForAwaken();
+          audio.playSfx('click');
+          return;
+        }
         sim.activeTool = (sim.activeTool === t && t !== 'select') ? 'select' : t;
         document.querySelectorAll('.power-btn[data-tool]').forEach((b) => {
           b.classList.remove('active', 'awaken-active', 'possess-active');
@@ -7824,18 +8143,28 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       rebuildRoads();
     };
 
+    function promptGeminiKeyForAwaken() {
+      saveStatus.textContent = '';
+      keyStatus.className = 'status-msg err';
+      keyStatus.textContent = 'Enter a Gemini API key to unlock Awaken Mind!';
+      settingsModal.classList.add('open');
+      keyInput.focus();
+    }
+
     document.getElementById('btn-save-key').onclick = () => {
       const k = keyInput.value.trim();
       aiState.apiKey = k;
       if (k) {
         localStorage.setItem(STORAGE_KEYS.API_KEY, k);
         keyStatus.className = 'status-msg';
-        keyStatus.textContent = 'API key saved locally in browser.';
+        keyStatus.textContent = 'API key saved! Awaken Mind & Gemini AI are now enabled.';
       } else {
         localStorage.removeItem(STORAGE_KEYS.API_KEY);
         keyStatus.className = 'status-msg';
-        keyStatus.textContent = 'Key cleared (offline AI active).';
+        keyStatus.textContent = 'Key cleared (Kings now run on heuristic AI; Awaken locked).';
       }
+      updateHudStats();
+      updateInspectorUI();
     };
 
     document.getElementById('btn-clear-key').onclick = () => {
@@ -7843,7 +8172,9 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       aiState.apiKey = '';
       localStorage.removeItem(STORAGE_KEYS.API_KEY);
       keyStatus.className = 'status-msg';
-      keyStatus.textContent = 'API key cleared.';
+      keyStatus.textContent = 'API key cleared (heuristic AI active for Kings; Awaken locked).';
+      updateHudStats();
+      updateInspectorUI();
     };
 
     document.getElementById('btn-test-key').onclick = async () => {
@@ -7855,6 +8186,8 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
       }
       aiState.apiKey = k;
       localStorage.setItem(STORAGE_KEYS.API_KEY, k);
+      updateHudStats();
+      updateInspectorUI();
       keyStatus.className = 'status-msg';
       keyStatus.textContent = `Testing ${aiState.model}...`;
       try {
@@ -7929,6 +8262,7 @@ Choose a summit outcome in JSON: {"outcome":"trade|ally|peace|war","speech":"<10
         updateMeeting(simDt);
         updateCitizens(simDt);
         updateBoats(simDt);
+        updateCars(simDt);
         updateFx(simDt);
         econTimer += simDt;
         if (econTimer >= 3.5) {
