@@ -1,0 +1,6 @@
+{
+  "name": "Chronicles of Terra",
+  "description": "A 3D God-Sandbox & Living Nation Civilization simulation game with animated citizens, eras, diplomacy, coups, procedural music, and Gemini AI statecraft.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
